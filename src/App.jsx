@@ -1,27 +1,40 @@
 // ===============================
-// FŐ ALKALMAZÁS KOMPONENS
+// FŐ ALKALMAZÁS + ROUTER
 // ===============================
 
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
+
+// Oldalak importálása
+import Home from "./pages/Home";
+import Services from "./pages/Services";
+import Booking from "./pages/Booking";
+import Contact from "./pages/Contact";
+import Register from "./pages/Register";
+import Login from "./pages/Login";
+
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-black text-white">
+    <BrowserRouter>
+      <div className="min-h-screen bg-black text-white">
 
-      {/* ---------- NAVBAR ---------- */}
-      <Navbar />
+        {/* ---------- NAVBAR ---------- */}
+        <Navbar />
 
-      {/* ---------- OLDAL TARTALOM ---------- */}
-      <main className="p-6">
-        <h1 className="text-3xl font-bold text-red-600">
-          Autószerviz weboldal
-        </h1>
+        {/* ---------- OLDAL TARTALOM ---------- */}
+        <main className="p-6">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/szolgaltatasok" element={<Services />} />
+            <Route path="/idopont" element={<Booking />} />
+            <Route path="/kapcsolat" element={<Contact />} />
+            <Route path="/regisztracio" element={<Register />} />
+            <Route path="/bejelentkezes" element={<Login />} />
+          </Routes>
+        </main>
 
-        <p className="text-gray-400 mt-2">
-          Ide kerül majd a tartalom
-        </p>
-      </main>
-
-    </div>
+      </div>
+    </BrowserRouter>
   );
 }
