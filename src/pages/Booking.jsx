@@ -25,6 +25,42 @@ export default function Booking() {
   const [fuelType, setFuelType] = useState("");
   const [engineSize, setEngineSize] = useState("");
 
+  // ===== ÉVJÁRATOK (AUTÓ) =====
+  const carYears = Array.from(
+    { length: 2026 - 1990 + 1 },
+    (_, i) => 2026 - i
+  );
+
+  // ===== ÜNNEPNAPOK (2026–2027) =====
+  const holidays = [
+    // ---- 2026 ----
+    "2026-01-01", // Újév
+    "2026-03-15", // Nemzeti ünnep
+    "2026-04-03", // Nagypéntek
+    "2026-04-06", // Húsvét hétfő
+    "2026-05-01", // Munka ünnepe
+    "2026-05-25", // Pünkösd hétfő
+    "2026-08-20", // Államalapítás ünnepe
+    "2026-10-23", // Nemzeti ünnep
+    "2026-11-01", // Mindenszentek
+    "2026-12-25", // Karácsony
+    "2026-12-26", // Karácsony
+
+    // ---- 2027 ----
+    "2027-01-01", // Újév
+    "2027-03-15", // Nemzeti ünnep
+    "2027-03-26", // Nagypéntek
+    "2027-03-29", // Húsvét hétfő
+    "2027-05-01", // Munka ünnepe
+    "2027-05-17", // Pünkösd hétfő
+    "2027-08-20", // Államalapítás ünnepe
+    "2027-10-23", // Nemzeti ünnep
+    "2027-11-01", // Mindenszentek
+    "2027-12-25", // Karácsony
+    "2027-12-26", // Karácsony
+  ];
+
+
   // ===== SEGÉD =====
   const isWeekendDay = (year, month, day) => {
     const d = new Date(year, month - 1, day).getDay();
@@ -55,6 +91,12 @@ export default function Booking() {
     const d = new Date(date).getDay();
     return d === 0 || d === 6;
   };
+
+  const isHoliday = (year, month, day) => {
+    const dateString = `${year}-${month}-${day}`;
+    return holidays.includes(dateString);
+  };
+
 
   // ===== ADATOK =====
   const months = [
@@ -200,12 +242,23 @@ export default function Booking() {
             <option value="">Nap</option>
             {days.map((d) => {
               const weekend = isWeekendDay(selectedYear, selectedMonth, d);
+              const holiday = isHoliday(selectedYear, selectedMonth, d);
+              const disabled = weekend || holiday;
+
               return (
-                <option key={d} value={d} disabled={weekend}>
-                  {d} {weekend ? "(hétvége)" : ""}
+                <option
+                  key={d}
+                  value={d}
+                  disabled={disabled}
+                  className={disabled ? "text-gray-500" : ""}
+                >
+                  {d}
+                  {weekend ? " (hétvége)" : ""}
+                  {holiday ? " (ünnepnap)" : ""}
                 </option>
               );
             })}
+
           </select>
         </div>
       </section>
@@ -219,11 +272,10 @@ export default function Booking() {
                 key={t}
                 disabled={isPastTime(t)}
                 onClick={() => setSelectedTime(t)}
-                className={`p-2 rounded text-sm ${
-                  selectedTime === t
+                className={`p-2 rounded text-sm ${selectedTime === t
                     ? "bg-red-600"
                     : "bg-black hover:bg-gray-800"
-                }`}
+                  }`}
               >
                 {t}
               </button>
@@ -262,13 +314,19 @@ export default function Booking() {
           onChange={(e) => setCarModel(e.target.value)}
           className="bg-black p-3 rounded"
         />
-        <input
-          type="number"
-          placeholder="Évjárat"
+        <select
           value={carYear}
           onChange={(e) => setCarYear(e.target.value)}
           className="bg-black p-3 rounded"
-        />
+        >
+          <option value="">Évjárat</option>
+          {carYears.map((year) => (
+            <option key={year} value={year}>
+              {year}
+            </option>
+          ))}
+        </select>
+
 
         <select
           value={fuelType}
