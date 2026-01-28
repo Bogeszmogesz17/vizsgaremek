@@ -25,6 +25,13 @@ export default function Booking() {
   const [fuelType, setFuelType] = useState("");
   const [engineSize, setEngineSize] = useState("");
 
+  const [popup, setPopup] = useState({
+    show: false,
+    success: false,
+    message: ""
+  });
+
+
   // ===== ÉVJÁRATOK (AUTÓ) =====
   const carYears = Array.from(
     { length: 2026 - 1990 + 1 },
@@ -179,15 +186,33 @@ export default function Booking() {
       );
 
       const data = await res.json();
+
       if (!data.success) {
-        alert(data.message || "Mentési hiba");
+        setPopup({
+          show: true,
+          success: false,
+          message: data.message || "Sikertelen foglalás"
+        });
         return;
       }
 
+      // ✅ siker
+      setPopup({
+        show: true,
+        success: true,
+        message: "Sikeres foglalás 🎉"
+      });
+
+
       setShowSuccess(true);
     } catch {
-      alert("Nem sikerült kapcsolódni a szerverhez");
+      setPopup({
+        show: true,
+        success: false,
+        message: "Nem sikerült kapcsolódni a szerverhez"
+      });
     }
+
   };
 
   // ===== JSX =====
@@ -273,8 +298,8 @@ export default function Booking() {
                 disabled={isPastTime(t)}
                 onClick={() => setSelectedTime(t)}
                 className={`p-2 rounded text-sm ${selectedTime === t
-                    ? "bg-red-600"
-                    : "bg-black hover:bg-gray-800"
+                  ? "bg-red-600"
+                  : "bg-black hover:bg-gray-800"
                   }`}
               >
                 {t}
@@ -382,6 +407,37 @@ export default function Booking() {
           </div>
         </div>
       )}
+
+      {popup.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div
+            className={`p-8 rounded-lg text-center border-2 w-full max-w-sm
+        ${popup.success
+                ? "bg-green-900 border-green-500"
+                : "bg-red-900 border-red-500"}
+      `}
+          >
+            <h3 className="text-2xl font-bold mb-4">
+              {popup.success ? "Siker!" : "Hiba"}
+            </h3>
+
+            <p className="mb-6">{popup.message}</p>
+
+            <button
+              onClick={() => setPopup({ show: false, success: false, message: "" })}
+              className={`px-6 py-2 rounded font-semibold
+          ${popup.success
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-red-600 hover:bg-red-700"}
+        `}
+            >
+              Bezárás
+            </button>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 }
