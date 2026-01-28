@@ -30,7 +30,7 @@ export default function App() {
             <Route path="/idopont" element={<Booking />} />
             <Route path="/kapcsolat" element={<Contact />} />
             <Route path="/regisztracio" element={<Register />} />
-            <Route path="/bejelentkezes" element={<Login />} />
+            <Route path="/login" element={<Login />} />
           </Routes>
         </main>
 

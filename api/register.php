@@ -1,7 +1,11 @@
 <?php
-header("Access-Control-Allow-Origin: http://localhost:5173");
-header("Access-Control-Allow-Methods: POST, OPTIONS");
+// ===============================
+// CORS HEADERS
+// ===============================
+header("Access-Control-Allow-Origin: http://localhost:5174");
+header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
+header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -9,8 +13,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     exit();
 }
 
+session_start();
+
+// ===============================
+// DB KAPCSOLAT
+// ===============================
 require_once "db.php";
 
+// ===============================
+// ADATOK BEOLVASÁSA
+// ===============================
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (
@@ -30,8 +42,10 @@ $email = trim($data["email"]);
 $password = password_hash($data["password"], PASSWORD_DEFAULT);
 
 try {
-    // 🔍 EMAIL ELLENŐRZÉS
-    $check = $pdo->prepare("SELECT id FROM users WHERE email = :email LIMIT 1");
+    // ===============================
+    // EMAIL ELLENŐRZÉS
+    // ===============================
+    $check = $pdo->prepare("SELECT id FROM users WHERE email = :email");
     $check->execute([":email" => $email]);
 
     if ($check->fetch()) {
@@ -42,7 +56,9 @@ try {
         exit;
     }
 
-    // ✅ REGISZTRÁCIÓ
+    // ===============================
+    // REGISZTRÁCIÓ
+    // ===============================
     $stmt = $pdo->prepare("
         INSERT INTO users (name, email, password, created_at)
         VALUES (:name, :email, :password, NOW())
@@ -60,6 +76,7 @@ try {
     ]);
 
 } catch (PDOException $e) {
+    http_response_code(500);
     echo json_encode([
         "success" => false,
         "message" => "Szerverhiba"

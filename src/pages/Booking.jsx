@@ -166,23 +166,23 @@ export default function Booking() {
     }
 
     try {
-      const res = await fetch(
-        "http://localhost/vizsga/api/bookings_create.php",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            user_id: 1,
-            appointment_date: selectedDate,
-            appointment_time: selectedTime,
-            service: selectedService,
-            car_brand: carBrand,
-            car_model: carModel,
-            car_year: carYear,
-            fuel_type: fuelType,
-            engine_size: fuelType === "elektromos" ? null : engineSize,
-          }),
-        }
+      const res = await fetch("http://localhost/vizsga/api/bookings_create.php", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          appointment_date: selectedDate,
+          appointment_time: selectedTime,
+          service: selectedService,
+          car_brand: carBrand,
+          car_model: carModel,
+          car_year: carYear,
+          fuel_type: fuelType,
+          engine_size: fuelType === "elektromos" ? null : engineSize
+        })
+      }
       );
 
       const data = await res.json();

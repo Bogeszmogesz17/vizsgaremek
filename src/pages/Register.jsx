@@ -1,108 +1,106 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 
 export default function Register() {
-  const [modalMessage, setModalMessage] = useState("");
-  const [modalType, setModalType] = useState("");
+  const navigate = useNavigate();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
 
-  const handleRegister = async (e) => {
-    e.preventDefault();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalSuccess, setModalSuccess] = useState(false);
+  const [modalMessage, setModalMessage] = useState("");
 
+  const handleRegister = async () => {
     try {
       const res = await fetch("http://localhost/vizsga/api/register.php", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          password
-        })
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password })
       });
 
+      const data = await res.json();
+
       setModalMessage(data.message);
+      setModalSuccess(data.success === true);
+      setModalOpen(true);
 
       if (data.success) {
-        setModalType("success");
-      } else {
-        setModalType("error");
+        setName("");
+        setEmail("");
+        setPassword("");
       }
 
-      const data = await res.json();
-      setMessage(data.message);
-
-    } catch {
-      setMessage("Szerverhiba");
+    } catch (e) {
+      setModalMessage("Szerverhiba");
+      setModalSuccess(false);
+      setModalOpen(true);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto mt-10 bg-gray-900 p-6 rounded text-white">
-      <h2 className="text-2xl font-bold mb-4 text-center">Regisztráció</h2>
+    <>
+      {/* FORM */}
+      <div className="max-w-md mx-auto bg-gray-900 p-8 rounded text-white">
+        <h2 className="text-2xl mb-6 text-center">Regisztráció</h2>
 
-      <form onSubmit={handleRegister} className="space-y-4">
         <input
-          type="text"
+          className="w-full mb-3 p-3 bg-black rounded"
           placeholder="Név"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="w-full bg-black p-3 rounded"
+          onChange={e => setName(e.target.value)}
         />
 
         <input
-          type="email"
+          className="w-full mb-3 p-3 bg-black rounded"
           placeholder="Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="w-full bg-black p-3 rounded"
+          onChange={e => setEmail(e.target.value)}
         />
 
         <input
           type="password"
+          className="w-full mb-4 p-3 bg-black rounded"
           placeholder="Jelszó"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full bg-black p-3 rounded"
+          onChange={e => setPassword(e.target.value)}
         />
 
-        <button className="w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold">
+        <button
+          onClick={handleRegister}
+          className="w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
+        >
           Regisztráció
         </button>
-      </form>
+      </div>
 
-      {message && (
-        <p className="text-center mt-4 text-gray-300">{message}</p>
-      )}
-
-      {modalMessage && (
+      {/* MODAL */}
+      {modalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div
-            className={`p-6 rounded-lg text-center max-w-sm w-full
-        ${modalType === "success" ? "bg-green-700" : "bg-red-700"}
-      `}
+            className={`p-8 rounded text-center max-w-sm w-full
+              ${modalSuccess ? "bg-green-700" : "bg-red-700"}
+            `}
           >
-            <h3 className="text-white text-xl font-semibold mb-4">
-              {modalType === "success" ? "Siker 🎉" : "Hiba ❌"}
-            </h3>
-
-            <p className="text-white mb-6">
-              {modalMessage}
-            </p>
+            <p className="text-white text-lg mb-6">{modalMessage}</p>
 
             <button
-              onClick={() => setModalMessage("")}
-              className="bg-black bg-opacity-30 hover:bg-opacity-50 px-6 py-2 rounded text-white"
+              onClick={() => {
+                setModalOpen(false);
+
+                if (modalSuccess) {
+                  navigate("/login");
+                }
+              }}
+              className="bg-black px-4 py-2 rounded text-white"
             >
               OK
             </button>
+
           </div>
         </div>
       )}
-
-    </div>
+    </>
   );
 }

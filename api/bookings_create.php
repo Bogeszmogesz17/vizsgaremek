@@ -1,21 +1,45 @@
 <?php
-header("Access-Control-Allow-Origin: http://localhost:5173");
+// ===============================
+// SESSION + CORS
+// ===============================
+session_start();
+
+header("Access-Control-Allow-Origin: http://localhost:5174");
+header("Access-Control-Allow-Credentials: true");
 header("Access-Control-Allow-Methods: POST, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type");
 header("Content-Type: application/json");
 
-if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+// Preflight (CORS)
+if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     http_response_code(200);
-    exit();
+    exit;
 }
 
+// ===============================
+// BEJELENTKEZÉS ELLENŐRZÉS
+// ===============================
+if (!isset($_SESSION["user_id"])) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Nincs bejelentkezve"
+    ]);
+    exit;
+}
+
+$user_id = $_SESSION["user_id"];
+
+// ===============================
+// DB
+// ===============================
 require_once "db.php";
 
+// ===============================
+// ADATOK BEOLVASÁSA
+// ===============================
 $data = json_decode(file_get_contents("php://input"), true);
 
-// kötelező mezők
 $required = [
-    "user_id",
     "appointment_date",
     "appointment_time",
     "service",
@@ -27,67 +51,71 @@ $required = [
 
 foreach ($required as $field) {
     if (empty($data[$field])) {
-        http_response_code(400);
         echo json_encode([
             "success" => false,
-            "message" => "Hiányzó adatok: $field"
+            "message" => "Hiányzó adat: $field"
         ]);
         exit;
     }
 }
 
+$appointment_date = $data["appointment_date"];
+$appointment_time = $data["appointment_time"];
+$service          = $data["service"];
+$car_brand        = $data["car_brand"];
+$car_model        = $data["car_model"];
+$car_year         = (int)$data["car_year"];
+$fuel_type        = $data["fuel_type"];
+$engine_size      = $data["engine_size"] ?? null;
+
+// ===============================
+// MENTÉS
+// ===============================
 try {
-    // 1️⃣ work_process
     $stmt = $pdo->prepare("
-        INSERT INTO work_process
-        (user_id, appointment_date, status, work_price, service_price, material_price, issued_at, method_id)
-        VALUES (:user_id, :appointment_date, 0, 0, 0, 0, NOW(), 1)
+        INSERT INTO bookings (
+            user_id,
+            appointment_date,
+            appointment_time,
+            service,
+            car_brand,
+            car_model,
+            car_year,
+            fuel_type,
+            engine_size
+        ) VALUES (
+            :user_id,
+            :date,
+            :time,
+            :service,
+            :brand,
+            :model,
+            :year,
+            :fuel,
+            :engine
+        )
     ");
+
     $stmt->execute([
-        ":user_id" => $data["user_id"],
-        ":appointment_date" => $data["appointment_date"]
+        ":user_id" => $user_id,
+        ":date"    => $appointment_date,
+        ":time"    => $appointment_time,
+        ":service" => $service,
+        ":brand"   => $car_brand,
+        ":model"   => $car_model,
+        ":year"    => $car_year,
+        ":fuel"    => $fuel_type,
+        ":engine"  => $engine_size
     ]);
-
-    $workProcessId = $pdo->lastInsertId();
-
-    // 2️⃣ vehicles (FONTOS: engine_number!)
-    $stmt = $pdo->prepare("
-        INSERT INTO vehicles
-        (user_id, brand, model, year, engine_number)
-        VALUES (:user_id, :brand, :model, :year, :engine_number)
-    ");
-    $stmt->execute([
-        ":user_id" => $data["user_id"],
-        ":brand" => $data["car_brand"],
-        ":model" => $data["car_model"],
-        ":year" => $data["car_year"],
-        ":engine_number" => $data["fuel_type"]
-    ]);
-
-    $vehicleId = $pdo->lastInsertId();
-
-    // 3️⃣ users_vehicle
-    $stmt = $pdo->prepare("
-    INSERT INTO users_vehicle (user_id, vehicle_id, appointment_id)
-    VALUES (:user_id, :vehicle_id, :appointment_id)
-");
-
-$stmt->execute([
-    ":user_id" => $data["user_id"],
-    ":vehicle_id" => $vehicleId,
-    ":appointment_id" => $workProcessId
-]);
-
 
     echo json_encode([
         "success" => true,
-        "message" => "Foglalás sikeresen rögzítve"
+        "message" => "Sikeres foglalás"
     ]);
 
 } catch (PDOException $e) {
-    http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => $e->getMessage() // ⬅ MOST KIÍRJA A VALÓDI SQL HIBÁT
+        "message" => $e->getMessage()
     ]);
 }
