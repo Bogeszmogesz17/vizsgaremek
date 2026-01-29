@@ -8,7 +8,6 @@ export default function Login() {
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,44 +21,32 @@ export default function Login() {
     try {
       const res = await fetch("http://localhost/vizsga/api/login.php", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include", // 👈 SESSION MIATT KELL
-        body: JSON.stringify({
-          email,
-          password,
-        }),
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ email, password }),
       });
 
       const data = await res.json();
 
-
       if (!data.success) {
-        setError(data.message || "Hibás adatok");
+        setError(data.message || "Hibás belépési adatok");
         return;
       }
 
-      // ✅ SIKERES BEJELENTKEZÉS
-      setSuccess(true);
+      // ✅ SIKERES LOGIN → FŐOLDAL
+      navigate("/");
 
-      setTimeout(() => {
-        navigate("/"); // főoldal
-      }, 1500);
-
-    } catch {
-      setError("Szerverhiba");
+    } catch (err) {
+      setError("Nem sikerült kapcsolódni a szerverhez");
     }
   };
 
   return (
     <div className="max-w-md mx-auto bg-gray-900 p-6 rounded-lg text-white">
-      {/* CÍM */}
       <h1 className="text-3xl font-bold text-red-600 text-center">
         Bejelentkezés
       </h1>
 
-      {/* ŰRLAP */}
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <input
           type="email"
@@ -85,21 +72,12 @@ export default function Login() {
         </button>
       </form>
 
-      {/* HIBA */}
       {error && (
         <p className="text-red-500 text-sm mt-4 text-center">
           {error}
         </p>
       )}
 
-      {/* SIKER */}
-      {success && (
-        <div className="mt-4 p-3 rounded bg-green-600 text-center">
-          Sikeres bejelentkezés ✅
-        </div>
-      )}
-
-      {/* REGISZTRÁCIÓ */}
       <p className="text-gray-400 text-sm mt-6 text-center">
         Nincs még fiókod?{" "}
         <Link to="/regisztracio" className="text-red-600 hover:underline">

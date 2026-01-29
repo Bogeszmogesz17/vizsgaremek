@@ -7,6 +7,7 @@ import Navbar from "./components/Navbar";
 
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import Account from "./pages/Account";
 
 
 // Oldalak importálása
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/fiok" element={<Account />} />
           </Routes>
         </main>
 
