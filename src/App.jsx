@@ -5,6 +5,10 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
 
+import AdminLogin from "./pages/AdminLogin";
+import AdminDashboard from "./pages/AdminDashboard";
+
+
 // Oldalak importálása
 import Home from "./pages/Home";
 import Services from "./pages/Services";
@@ -31,6 +35,8 @@ export default function App() {
             <Route path="/kapcsolat" element={<Contact />} />
             <Route path="/regisztracio" element={<Register />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/admin-login" element={<AdminLogin />} />
+            <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
         </main>
 
