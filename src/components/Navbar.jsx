@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [auth, setAuth] = useState({ loading: true });
+  const [auth, setAuth] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -11,19 +11,15 @@ export default function Navbar() {
       credentials: "include",
     })
       .then(res => res.json())
-      .then(data => {
-        setAuth({ ...data, loading: false });
-      })
-      .catch(() => {
-        setAuth({ loggedIn: false, loading: false });
-      });
+      .then(data => setAuth(data))
+      .catch(() => setAuth({ loggedIn: false }));
   }, []);
 
   const logout = async () => {
     await fetch("http://localhost/vizsga/api/logout.php", {
       credentials: "include",
     });
-    setAuth({ loggedIn: false, loading: false });
+    setAuth({ loggedIn: false });
     navigate("/");
   };
 
@@ -49,41 +45,46 @@ export default function Navbar() {
           </ul>
 
           {/* AUTH */}
-          {!auth.loading && (
-            !auth.loggedIn ? (
-              <div className="flex items-center gap-4">
-                <Link to="/login" className="text-gray-300 hover:text-white">
-                  Bejelentkezés
-                </Link>
+          {auth === null ? null : !auth.loggedIn ? (
+            <div className="flex items-center gap-4">
+              <Link to="/login" className="hover:text-white">
+                Bejelentkezés
+              </Link>
+              <Link
+                to="/regisztracio"
+                className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white"
+              >
+                Regisztráció
+              </Link>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+
+              {/* 👑 ADMIN GOMB */}
+              {auth.role === "admin" && (
                 <Link
-                  to="/regisztracio"
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md"
+                  to="/admin"
+                  className="text-red-500 font-semibold hover:underline"
                 >
-                  Regisztráció
+                  Admin
                 </Link>
-              </div>
-            ) : (
-              <div className="flex items-center gap-4">
-                {auth.role === "admin" && (
-                  <Link to="/admin" className="text-red-500 font-semibold">
-                    Admin
-                  </Link>
-                )}
-                <Link to="/fiok" className="hover:text-red-600">
-                  Fiókom
-                </Link>
-                <button
-                  onClick={logout}
-                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-md text-white"
-                >
-                  Kijelentkezés
-                </button>
-              </div>
-            )
+              )}
+
+              <Link to="/fiok" className="hover:text-red-600">
+                Fiókom
+              </Link>
+
+              <button
+                onClick={logout}
+                className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white"
+              >
+                Kijelentkezés
+              </button>
+            </div>
           )}
         </div>
 
-        {/* HAMBURGER */}
+        {/* MOBIL HAMBURGER */}
         <button
           className="text-white text-2xl md:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -93,7 +94,7 @@ export default function Navbar() {
       </div>
 
       {/* MOBIL MENÜ */}
-      {menuOpen && !auth.loading && (
+      {menuOpen && (
         <div className="md:hidden bg-black border-t border-gray-800 text-gray-300">
           <ul>
             <li className="px-6 py-3"><Link to="/" onClick={() => setMenuOpen(false)}>Főoldal</Link></li>
@@ -103,17 +104,21 @@ export default function Navbar() {
           </ul>
 
           <div className="border-t border-gray-800">
-            {!auth.loggedIn ? (
+            {!auth?.loggedIn ? (
               <>
                 <Link to="/login" className="block px-6 py-3">Bejelentkezés</Link>
                 <Link to="/regisztracio" className="block px-6 py-3 text-red-600">Regisztráció</Link>
               </>
             ) : (
               <>
+                {auth.role === "admin" && (
+                  <Link to="/admin" className="block px-6 py-3 text-red-500">
+                    Admin
+                  </Link>
+                )}
                 <Link to="/fiok" className="block px-6 py-3">Fiókom</Link>
                 <button
                   onClick={logout}
-                  
                   className="block w-full text-left px-6 py-3 text-red-600"
                 >
                   Kijelentkezés
