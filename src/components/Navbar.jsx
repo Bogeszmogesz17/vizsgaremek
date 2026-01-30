@@ -113,6 +113,7 @@ export default function Navbar() {
                 <Link to="/fiok" className="block px-6 py-3">Fiókom</Link>
                 <button
                   onClick={logout}
+                  
                   className="block w-full text-left px-6 py-3 text-red-600"
                 >
                   Kijelentkezés
