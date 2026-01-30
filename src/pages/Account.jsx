@@ -2,15 +2,49 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Account() {
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPassword2, setNewPassword2] = useState("");
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState(""); // success | error
-  const [user, setUser] = useState(null);
-  const [error, setError] = useState("");
-  const navigate = useNavigate(); const handlePasswordChange = async () => {
+
+  const navigate = useNavigate();
+
+  // 🔐 SESSION CHECK + ADATOK
+  useEffect(() => {
+    fetch("http://localhost/vizsga/api/me.php", {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+          navigate("/login");
+          return;
+        }
+
+        setUser(data.user);
+        setLoading(false);
+      })
+      .catch(() => {
+        navigate("/login");
+      });
+  }, []);
+
+  // ⏳ BETÖLTÉS
+  if (loading) {
+    return (
+      <p className="text-center text-gray-400 mt-10">
+        Betöltés...
+      </p>
+    );
+  }
+
+  // 🔑 JELSZÓ MÓDOSÍTÁS
+  const handlePasswordChange = async () => {
     setMsg("");
 
     if (!oldPassword || !newPassword || !newPassword2) {
@@ -60,31 +94,6 @@ export default function Account() {
     }
   };
 
-
-
-  useEffect(() => {
-    fetch("http://localhost/vizsga/api/me.php", {
-      credentials: "include"
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.success) {
-          navigate("/bejelentkezes");
-          return;
-        }
-        setUser(data.user);
-      })
-      .catch(() => setError("Nem sikerült betölteni az adatokat"));
-  }, []);
-
-  if (error) {
-    return <p className="text-red-500 text-center">{error}</p>;
-  }
-
-  if (!user) {
-    return <p className="text-center text-gray-400">Betöltés...</p>;
-  }
-
   return (
     <div className="max-w-lg mx-auto bg-gray-900 p-8 rounded text-white">
       <h1 className="text-3xl font-bold text-red-600 mb-6 text-center">
@@ -111,7 +120,9 @@ export default function Account() {
 
       {showPasswordForm && (
         <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-4">Jelszó módosítása</h2>
+          <h2 className="text-xl font-semibold mb-4">
+            Jelszó módosítása
+          </h2>
 
           <input
             type="password"
@@ -146,10 +157,11 @@ export default function Account() {
 
           {msg && (
             <div
-              className={`mt-4 p-3 rounded text-center ${msgType === "success"
+              className={`mt-4 p-3 rounded text-center ${
+                msgType === "success"
                   ? "bg-green-600"
                   : "bg-red-600"
-                }`}
+              }`}
             >
               {msg}
             </div>
@@ -157,12 +169,13 @@ export default function Account() {
         </div>
       )}
 
-
       <button
         onClick={() => {
           fetch("http://localhost/vizsga/api/logout.php", {
             credentials: "include"
-          }).then(() => navigate("/"));
+          }).then(() => {
+            window.location.href = "/";
+          });
         }}
         className="mt-8 w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
       >

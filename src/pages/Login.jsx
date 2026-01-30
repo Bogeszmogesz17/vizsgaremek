@@ -34,7 +34,9 @@ export default function Login() {
       }
 
       // ✅ SIKERES LOGIN → FŐOLDAL
-      navigate("/");
+
+      window.location.href = "/";
+
 
     } catch (err) {
       setError("Nem sikerült kapcsolódni a szerverhez");

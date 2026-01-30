@@ -16,17 +16,18 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     exit;
 }
 
-// 🔒 SESSION ELLENŐRZÉS
+// 🔒 NEM ADMIN
 if (!isset($_SESSION["admin_id"])) {
     echo json_encode([
-        "logged_in" => false
+        "success" => false,
+        "message" => "Nincs admin jogosultság"
     ]);
     exit;
 }
 
-// ✅ HA BE VAN JELENTKEZVE
+// ✅ ADMIN BE VAN JELENTKEZVE
 echo json_encode([
-    "logged_in" => true,
+    "success" => true,
     "admin" => [
         "id" => $_SESSION["admin_id"],
         "email" => $_SESSION["admin_email"]
