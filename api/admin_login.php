@@ -1,8 +1,4 @@
 <?php
-// ===============================
-// ADMIN LOGIN (EMAIL + SESSION)
-// ===============================
-
 session_start();
 
 header("Access-Control-Allow-Origin: http://localhost:5173");
@@ -21,7 +17,7 @@ require_once "db.php";
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (
-    empty($data["email"]) ||
+    empty($data["email"]) ||   // frontend miatt marad "email"
     empty($data["password"])
 ) {
     echo json_encode([
@@ -31,38 +27,45 @@ if (
     exit;
 }
 
-$email = trim($data["email"]);
+$username = trim($data["email"]); // frontend mező = username
 $password = $data["password"];
 
 try {
-    // ADMIN LEKÉRÉS EMAIL ALAPJÁN
     $stmt = $pdo->prepare("
-        SELECT id, email, password 
-        FROM admins 
-        WHERE email = :email
+        SELECT id, username, password
+        FROM admins
+        WHERE username = :username
         LIMIT 1
     ");
-    $stmt->execute([":email" => $email]);
-    $admin = $stmt->fetch();
+    $stmt->execute([":username" => $username]);
+    $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$admin || !password_verify($password, $admin["password"])) {
+    if (!$admin) {
         echo json_encode([
             "success" => false,
-            "message" => "Hibás email vagy jelszó"
+            "message" => "Nincs ilyen admin"
         ]);
         exit;
     }
 
-    // SESSION BEÁLLÍTÁS
+    if (!password_verify($password, $admin["password"])) {
+        echo json_encode([
+            "success" => false,
+            "message" => "Hibás jelszó"
+        ]);
+        exit;
+    }
+
+    // ✅ EGYSÉGES SESSION
     $_SESSION["admin_id"] = $admin["id"];
-    $_SESSION["admin_email"] = $admin["email"];
+    $_SESSION["admin_name"] = $admin["username"];
 
     echo json_encode([
         "success" => true,
         "message" => "Sikeres admin bejelentkezés"
     ]);
 
-} catch (PDOException $e) {
+} catch (Throwable $e) {
     echo json_encode([
         "success" => false,
         "message" => "Szerverhiba"

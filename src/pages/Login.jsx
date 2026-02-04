@@ -4,42 +4,48 @@ import { Link, useNavigate } from "react-router-dom";
 export default function Login() {
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("user"); // user | admin
+  const [identifier, setIdentifier] = useState(""); // email vagy username
   const [password, setPassword] = useState("");
-
   const [error, setError] = useState("");
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
 
-    if (!email || !password) {
+    if (!identifier || !password) {
       setError("Minden mező kitöltése kötelező");
       return;
     }
 
+    const url =
+      role === "admin"
+        ? "http://localhost/vizsga/api/admin_login.php"
+        : "http://localhost/vizsga/api/login.php";
+
     try {
-      const res = await fetch("http://localhost/vizsga/api/login.php", {
+      const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({
+          email: identifier, // adminnál is email kulcs, de username megy bele
+          password
+        })
       });
 
       const data = await res.json();
 
       if (!data.success) {
-        setError(data.message || "Hibás belépési adatok");
+        setError(data.message || "Hibás adatok");
         return;
       }
 
-      // ✅ SIKERES LOGIN → FŐOLDAL
+      // SIKER
+      navigate(role === "admin" ? "/admin" : "/");
 
-      window.location.href = "/";
-
-
-    } catch (err) {
-      setError("Nem sikerült kapcsolódni a szerverhez");
+    } catch {
+      setError("Szerverhiba");
     }
   };
 
@@ -49,12 +55,40 @@ export default function Login() {
         Bejelentkezés
       </h1>
 
+      {/* ROLE VÁLASZTÓ */}
+      <div className="flex justify-center gap-6 mt-6">
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            value="user"
+            checked={role === "user"}
+            onChange={() => setRole("user")}
+          />
+          Felhasználó
+        </label>
+
+        <label className="flex items-center gap-2">
+          <input
+            type="radio"
+            value="admin"
+            checked={role === "admin"}
+            onChange={() => setRole("admin")}
+          />
+          Admin
+        </label>
+      </div>
+
+      {/* FORM */}
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <input
-          type="email"
-          placeholder="E-mail cím"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          type="text"
+          placeholder={
+            role === "admin"
+              ? "Admin felhasználónév"
+              : "E-mail cím"
+          }
+          value={identifier}
+          onChange={(e) => setIdentifier(e.target.value)}
           className="w-full p-3 rounded bg-black border border-gray-700 text-white"
         />
 
@@ -68,7 +102,7 @@ export default function Login() {
 
         <button
           type="submit"
-          className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold p-3 rounded transition"
+          className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold p-3 rounded"
         >
           Bejelentkezés
         </button>
@@ -80,12 +114,14 @@ export default function Login() {
         </p>
       )}
 
-      <p className="text-gray-400 text-sm mt-6 text-center">
-        Nincs még fiókod?{" "}
-        <Link to="/regisztracio" className="text-red-600 hover:underline">
-          Regisztráció
-        </Link>
-      </p>
+      {role === "user" && (
+        <p className="text-gray-400 text-sm mt-6 text-center">
+          Nincs még fiókod?{" "}
+          <Link to="/regisztracio" className="text-red-600 hover:underline">
+            Regisztráció
+          </Link>
+        </p>
+      )}
     </div>
   );
 }

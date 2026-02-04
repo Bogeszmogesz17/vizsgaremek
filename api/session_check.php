@@ -9,7 +9,7 @@ if (isset($_SESSION["admin_id"])) {
   echo json_encode([
     "loggedIn" => true,
     "role" => "admin",
-    "email" => $_SESSION["email"]
+    "name" => $_SESSION["admin_name"]
   ]);
   exit;
 }

@@ -31,7 +31,7 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-3">
           <div className="w-9 h-9 bg-red-600 rounded-sm"></div>
           <span className="text-white font-bold text-lg">
-            Autószerviz
+            Dupla dugattyú műhely
           </span>
         </Link>
 
