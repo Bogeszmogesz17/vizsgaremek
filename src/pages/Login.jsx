@@ -43,7 +43,8 @@ export default function Login() {
 
       // SIKER
       navigate(role === "admin" ? "/admin" : "/");
-
+      window.location.reload();
+      
     } catch {
       setError("Szerverhiba");
     }

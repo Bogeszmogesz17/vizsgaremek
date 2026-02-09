@@ -1,9 +1,6 @@
 <?php
 session_start();
 
-ini_set('display_errors', 0);
-error_reporting(0);
-
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
@@ -21,23 +18,22 @@ require_once "db.php";
 try {
     $stmt = $pdo->query("
         SELECT 
-            b.id,
-            b.appointment_date,
-            b.appointment_time,
-            b.service,
-            b.car_brand,
-            b.car_model,
-            b.fuel_type,
+            wp.id,
+            wp.appointment_date,
+            wp.appointment_time,
+            wp.status,
+            wp.issued_at,
             u.name AS user_name,
             u.email AS user_email
-        FROM bookings b
-        JOIN users u ON b.user_id = u.id
-        ORDER BY b.appointment_date DESC
+        FROM work_process wp
+        JOIN users u ON wp.user_id = u.id
+        WHERE wp.status = 1
+        ORDER BY wp.issued_at ASC
     ");
 
     echo json_encode([
         "success" => true,
-        "bookings" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+        "works" => $stmt->fetchAll(PDO::FETCH_ASSOC)
     ]);
 } catch (PDOException $e) {
     echo json_encode([

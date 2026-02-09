@@ -10,14 +10,9 @@ export default function Services() {
   // -------------------------------
   const services = [
     {
-      title: "Gumizás",
+      title: "Gumizás/Centrírozás",
       description:
-        "Nyári és téli gumik cseréje, szerelése és ellenőrzése modern eszközökkel."
-    },
-    {
-      title: "Centírozás",
-      description:
-        "Kerekek pontos centírozása a vibráció csökkentése és a komfortos vezetés érdekében."
+        "Nyári és téli gumik cseréje, szerelése és ellenőrzése modern eszközökkel. Kerekek pontos centrírozása a vibráció csökkentése és a komfortos vezetés érdekében."
     },
     {
       title: "Átvizsgálás",

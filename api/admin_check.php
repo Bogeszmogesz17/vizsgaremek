@@ -1,7 +1,6 @@
 <?php
-// ===============================
-// ADMIN SESSION CHECK
-// ===============================
+ini_set('display_errors', 0);
+error_reporting(0);
 
 session_start();
 
@@ -16,20 +15,17 @@ if ($_SERVER["REQUEST_METHOD"] === "OPTIONS") {
     exit;
 }
 
-// 🔒 NEM ADMIN
 if (!isset($_SESSION["admin_id"])) {
     echo json_encode([
-        "success" => false,
-        "message" => "Nincs admin jogosultság"
+        "success" => false
     ]);
     exit;
 }
 
-// ✅ ADMIN BE VAN JELENTKEZVE
 echo json_encode([
     "success" => true,
     "admin" => [
         "id" => $_SESSION["admin_id"],
-        "email" => $_SESSION["admin_email"]
+        "name" => $_SESSION["admin_name"] ?? ""
     ]
 ]);

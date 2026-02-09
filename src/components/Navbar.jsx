@@ -47,9 +47,7 @@ export default function Navbar() {
           {/* AUTH */}
           {auth === null ? null : !auth.loggedIn ? (
             <div className="flex items-center gap-4">
-              <Link to="/login" className="hover:text-white">
-                Bejelentkezés
-              </Link>
+              <Link to="/login">Bejelentkezés</Link>
               <Link
                 to="/regisztracio"
                 className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white"
@@ -60,19 +58,22 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-4">
 
-              {/* 👑 ADMIN GOMB */}
+              {/* 👑 ADMIN */}
               {auth.role === "admin" && (
                 <Link
                   to="/admin"
                   className="text-red-500 font-semibold hover:underline"
                 >
-                  Admin
+                  Admin felület
                 </Link>
               )}
 
-              <Link to="/fiok" className="hover:text-red-600">
-                Fiókom
-              </Link>
+              {/* 👤 USER */}
+              {auth.role === "user" && (
+                <Link to="/fiok" className="hover:text-red-600">
+                  Fiókom
+                </Link>
+              )}
 
               <button
                 onClick={logout}
@@ -84,7 +85,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* MOBIL HAMBURGER */}
+        {/* MOBIL */}
         <button
           className="text-white text-2xl md:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -113,10 +114,14 @@ export default function Navbar() {
               <>
                 {auth.role === "admin" && (
                   <Link to="/admin" className="block px-6 py-3 text-red-500">
-                    Admin
+                    Admin felület
                   </Link>
                 )}
-                <Link to="/fiok" className="block px-6 py-3">Fiókom</Link>
+                {auth.role === "user" && (
+                  <Link to="/fiok" className="block px-6 py-3">
+                    Fiókom
+                  </Link>
+                )}
                 <button
                   onClick={logout}
                   className="block w-full text-left px-6 py-3 text-red-600"
