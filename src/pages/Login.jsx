@@ -1,11 +1,11 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
   const navigate = useNavigate();
 
   const [role, setRole] = useState("user"); // user | admin
-  const [identifier, setIdentifier] = useState(""); // email vagy username
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -13,7 +13,7 @@ export default function Login() {
     e.preventDefault();
     setError("");
 
-    if (!identifier || !password) {
+    if (!email || !password) {
       setError("Minden mező kitöltése kötelező");
       return;
     }
@@ -28,40 +28,40 @@ export default function Login() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({
-          email: identifier, // adminnál is email kulcs, de username megy bele
-          password
-        })
+        body: JSON.stringify({ email, password })
       });
 
       const data = await res.json();
 
       if (!data.success) {
-        setError(data.message || "Hibás adatok");
+        setError(data.message || "Sikertelen bejelentkezés");
         return;
       }
 
-      // SIKER
-      navigate(role === "admin" ? "/admin" : "/");
-      window.location.reload();
-      
+      // 👉 SIKERES BELÉPÉS
+      if (role === "admin") {
+        navigate("/admin");
+      } else {
+        navigate("/");
+      }
+
     } catch {
       setError("Szerverhiba");
     }
   };
 
   return (
-    <div className="max-w-md mx-auto bg-gray-900 p-6 rounded-lg text-white">
-      <h1 className="text-3xl font-bold text-red-600 text-center">
+    <div className="max-w-md mx-auto bg-gray-900 p-8 rounded text-white mt-10">
+
+      <h1 className="text-3xl font-bold text-red-600 text-center mb-6">
         Bejelentkezés
       </h1>
 
       {/* ROLE VÁLASZTÓ */}
-      <div className="flex justify-center gap-6 mt-6">
+      <div className="flex justify-center gap-6 mb-6">
         <label className="flex items-center gap-2">
           <input
             type="radio"
-            value="user"
             checked={role === "user"}
             onChange={() => setRole("user")}
           />
@@ -71,7 +71,6 @@ export default function Login() {
         <label className="flex items-center gap-2">
           <input
             type="radio"
-            value="admin"
             checked={role === "admin"}
             onChange={() => setRole("admin")}
           />
@@ -79,48 +78,35 @@ export default function Login() {
         </label>
       </div>
 
-      {/* FORM */}
-      <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          type="text"
-          placeholder={
-            role === "admin"
-              ? "Admin felhasználónév"
-              : "E-mail cím"
-          }
-          value={identifier}
-          onChange={(e) => setIdentifier(e.target.value)}
-          className="w-full p-3 rounded bg-black border border-gray-700 text-white"
+          type={role === "admin" ? "text" : "email"}
+          placeholder={role === "admin" ? "Felhasználónév" : "E-mail cím"}
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          className="w-full p-3 bg-black rounded border border-gray-700"
         />
+
 
         <input
           type="password"
           placeholder="Jelszó"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 rounded bg-black border border-gray-700 text-white"
+          onChange={e => setPassword(e.target.value)}
+          className="w-full p-3 bg-black rounded border border-gray-700"
         />
 
         <button
           type="submit"
-          className="w-full bg-red-600 hover:bg-red-700 text-white font-semibold p-3 rounded"
+          className="w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
         >
-          Bejelentkezés
+          Belépés
         </button>
       </form>
 
       {error && (
-        <p className="text-red-500 text-sm mt-4 text-center">
+        <p className="text-red-500 text-center mt-4">
           {error}
-        </p>
-      )}
-
-      {role === "user" && (
-        <p className="text-gray-400 text-sm mt-6 text-center">
-          Nincs még fiókod?{" "}
-          <Link to="/regisztracio" className="text-red-600 hover:underline">
-            Regisztráció
-          </Link>
         </p>
       )}
     </div>

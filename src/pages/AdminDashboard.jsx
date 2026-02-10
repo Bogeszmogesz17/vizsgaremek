@@ -10,6 +10,12 @@ export default function AdminDashboard() {
 
   const [works, setWorks] = useState([]);
   const [workLoading, setWorkLoading] = useState(false);
+  const [showWorkForm, setShowWorkForm] = useState(false);
+  const [selectedBooking, setSelectedBooking] = useState(null);
+  const [workDescription, setWorkDescription] = useState("");
+  const [workDate, setWorkDate] = useState("");
+  const [workTime, setWorkTime] = useState("");
+
 
   // 🔐 ADMIN CHECK
   useEffect(() => {
@@ -69,6 +75,40 @@ export default function AdminDashboard() {
     if (data.success) loadWorks();
     else alert(data.message);
   };
+  const submitAdditionalWork = async () => {
+    if (!workDescription || !workDate || !workTime) {
+      alert("Minden mező kötelező");
+      return;
+    }
+
+    const res = await fetch(
+      "http://localhost/vizsga/api/create_work_process.php",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          booking_id: selectedBooking.id,
+          description: workDescription,
+          date: workDate,
+          time: workTime
+        })
+      }
+    );
+
+    const data = await res.json();
+
+    if (data.success) {
+      setShowWorkForm(false);
+      setWorkDescription("");
+      setWorkDate("");
+      setWorkTime("");
+      loadWorks();
+    } else {
+      alert(data.message);
+    }
+  };
+
 
   // ✅ Munka lezárása
   const finishWork = async (workId) => {
@@ -143,7 +183,10 @@ export default function AdminDashboard() {
                     <td className="p-2">
                       {b.service === "atvizsgalas" && (
                         <button
-                          onClick={() => startAdditionalWork(b.id)}
+                          onClick={() => {
+                            setSelectedBooking(b);
+                            setShowWorkForm(true);
+                          }}
                           className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded"
                         >
                           További munka
@@ -208,6 +251,61 @@ export default function AdminDashboard() {
             )}
         </>
       )}
+      {showWorkForm && selectedBooking && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-gray-900 p-6 rounded w-full max-w-md">
+
+            <h3 className="text-xl font-bold mb-4 text-red-600">
+              További munka felvétele
+            </h3>
+
+            <p className="text-sm text-gray-400 mb-2">
+              {selectedBooking.car_brand} {selectedBooking.car_model}
+            </p>
+
+            <textarea
+              placeholder="Munka leírása (pl. fékcsere, futómű javítás)"
+              value={workDescription}
+              onChange={e => setWorkDescription(e.target.value)}
+              className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
+            />
+
+            <input
+              type="date"
+              value={workDate}
+              min="2024-01-01"
+              max="2035-12-31"
+              onChange={e => setWorkDate(e.target.value)}
+              className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
+            />
+
+
+            <input
+              type="time"
+              value={workTime}
+              onChange={e => setWorkTime(e.target.value)}
+              className="w-full p-2 bg-black border border-gray-700 rounded mb-4"
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowWorkForm(false)}
+                className="px-4 py-2 bg-gray-700 rounded"
+              >
+                Mégse
+              </button>
+
+              <button
+                onClick={submitAdditionalWork}
+                className="px-4 py-2 bg-red-600 rounded"
+              >
+                Mentés
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
