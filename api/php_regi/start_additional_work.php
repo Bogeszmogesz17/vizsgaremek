@@ -1,7 +1,17 @@
 <?php
-require "./core/settings.php";
+session_start();
 
-isAdmin();
+header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json");
+
+if (!isset($_SESSION["admin_id"])) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Nincs admin jogosultság"
+    ]);
+    exit;
+}
 
 require_once "db.php";
 
@@ -18,7 +28,7 @@ if (empty($data["booking_id"])) {
 $booking_id = (int)$data["booking_id"];
 
 try {
-    // 🔎 Foglalás lekérése
+    // foglalás lekérése
     $stmt = $pdo->prepare("
         SELECT user_id, appointment_date, appointment_time
         FROM bookings
@@ -36,17 +46,20 @@ try {
         exit;
     }
 
-    // ➕ work_process létrehozása
+    // work_process létrehozása
     $insert = $pdo->prepare("
         INSERT INTO work_process (
+            booking_id,
             user_id,
             appointment_date,
             appointment_time,
             status,
             issued_at
-        ) VALUES (?, ?, ?, 1, NOW())
+        ) VALUES (?, ?, ?, ?, 1, NOW())
     ");
+
     $insert->execute([
+        $booking_id,
         $booking["user_id"],
         $booking["appointment_date"],
         $booking["appointment_time"]
@@ -54,7 +67,7 @@ try {
 
     echo json_encode([
         "success" => true,
-        "message" => "Munka elindítva"
+        "message" => "További munka elindítva"
     ]);
 
 } catch (PDOException $e) {

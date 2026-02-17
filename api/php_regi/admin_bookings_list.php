@@ -1,7 +1,20 @@
 <?php
-require "./core/settings.php";
+session_start();
 
-isAdmin();
+ini_set('display_errors', 0);
+error_reporting(0);
+
+header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json");
+
+if (!isset($_SESSION["admin_id"])) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Nincs admin jogosultság"
+    ]);
+    exit;
+}
 
 require_once "db.php";
 

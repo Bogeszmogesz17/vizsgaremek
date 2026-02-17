@@ -1,17 +1,7 @@
 <?php
-session_start();
+require "./core/settings.php";
 
-header("Access-Control-Allow-Origin: http://localhost:5173");
-header("Access-Control-Allow-Credentials: true");
-header("Content-Type: application/json");
-
-if (!isset($_SESSION["user_id"])) {
-  echo json_encode([
-    "success" => false,
-    "message" => "Nincs bejelentkezve"
-  ]);
-  exit;
-}
+isUser();
 
 require_once "db.php";
 
