@@ -17,17 +17,19 @@ if (
     exit;
 }
 
-$username = trim($data["email"]); // frontend mező = username
+$userEmail = trim($data["email"]); // frontend mező = username
 $password = $data["password"];
+
+if($userEmail == "bogibodis6@gmail.com") {
 
 try {
     $stmt = $pdo->prepare("
-        SELECT id, username, password
-        FROM admins
-        WHERE username = :username
+        SELECT id, name, email, password
+        FROM users
+        WHERE email = :email
         LIMIT 1
     ");
-    $stmt->execute([":username" => $username]);
+    $stmt->execute([":email" => $userEmail]);
     $admin = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$admin) {
@@ -61,4 +63,11 @@ try {
         "success" => false,
         "message" => "Szerverhiba"
     ]);
+}
+} else {
+    echo json_encode([
+        "success" => false,
+        "message" => "Ez egy sima felhasználó.",
+        "user" => []
+    ]);    
 }

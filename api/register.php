@@ -35,8 +35,8 @@ if ($check->fetch()) {
 
 // REGISZTRÁCIÓ
 $stmt = $pdo->prepare("
-    INSERT INTO users (name, email, password, created_at)
-    VALUES (?, ?, ?, NOW())
+    INSERT INTO users (name, email, password, created_at, settlement_id, phone_number, address)
+    VALUES (?, ?, ?, NOW(), 1, '1234', 'teszt utca')
 ");
 
 $stmt->execute([$name, $email, $password]);

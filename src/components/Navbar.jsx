@@ -29,7 +29,7 @@ export default function Navbar() {
 
         {/* LOGÓ */}
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-red-600 rounded-sm"></div>
+          <div className="w-20 h-20 bg-cover bg-[url('./src/components/logo.png')] rounded-sm"></div>
           <span className="text-white font-bold text-lg">
             Dupla dugattyú műhely
           </span>

@@ -4,7 +4,7 @@
 // ===============================
 
 $host = "localhost";
-$dbname = "vizsga";   
+$dbname = "vizsga2";   
 $user = "root";
 $pass = "";
 
