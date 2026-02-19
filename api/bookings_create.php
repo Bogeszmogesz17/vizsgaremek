@@ -72,8 +72,11 @@ echo "<pre>";
 print_r($vehicleIds);
 echo "</pre>";
 
-if($vehicleIds) {
-    echo "Van id";
+function registerVehicle($pdo) {
+
+}
+
+function createWorkProcess ($pdo, $data) {
     try {
         $stmt = $pdo->prepare("
             INSERT INTO work_process (
@@ -88,9 +91,9 @@ if($vehicleIds) {
         ");
     
         $stmt->execute([
-            ":date"       => $appointment_date,
-            ":time"       => $appointment_time,
-            ":vehicle_id" => $vehicleIds[0]
+            ":date"       => $data["appointment_date"],
+            ":time"       => $data["appointment_time"],
+            ":vehicle_id" => $data["vehicle_id"],
         ]);
     
         echo json_encode([
@@ -103,9 +106,20 @@ if($vehicleIds) {
             "success" => false,
             "message" => $e->getMessage()
         ]);
-    }   
+    }    
+}
+
+$data = [
+    "appointment_date" => $appointment_date,
+    "appointment_time" => $appointment_time
+];
+
+if($vehicleIds) {
+    $data["vehicle_id"] = $vehicleIds[0];
+    createWorkProcess($pdo, $data);
 } else {
-    echo "nincs id";
+    registerVehicle($pdo);
+    createWorkProcess($pdo, $data);
 }
 /*
 
