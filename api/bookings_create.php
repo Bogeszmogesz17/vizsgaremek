@@ -49,10 +49,15 @@ $fuel_type        = $data["fuel_type"];
 $engine_size      = $data["engine_size"] ?? null;
 
 
+echo "A data a legelején<pre>";
+print_r($data);
+echo "</pre>";
+
+
 //CSAK TESZTELÉSHEZ, AMÍG NINCS RENDESEN MEGCSINÁLVA A SELECT MEZŐK!!!!!!!!!!!!
-$car_model = 1;
-$fuel_type = 1;
-$engine_size = 1;
+$car_model = 2;
+$fuel_type = 2;
+$engine_size = 3;
 
 $stmt = $pdo->prepare("SELECT id FROM vehicles WHERE user_id = :user_id AND fuel_type_id = :fuel_type_id AND engine_size_id = :engine_size_id AND model_id = :model_id");
 
@@ -72,27 +77,72 @@ echo "<pre>";
 print_r($vehicleIds);
 echo "</pre>";
 
-function registerVehicle($pdo) {
-
+function registerVehicle($pdo, $data) {
+    echo "A data a registerVehicle-ben<pre>";
+    print_r($data);
+    echo "</pre>";
+    print_r($data);
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO vehicles (
+                year,
+                user_id,
+                model_id,
+                fuel_type_id,
+                engine_size_id
+            ) VALUES (
+                :year,
+                :user_id,
+                :model_id,
+                :fuel_type_id,
+                :engine_size_id
+            )
+        ");
+    
+        $stmt->execute([
+            ":year"           => (int)$data["car_year"],
+            ":user_id"        => $data["user_id"],
+            ":model_id"       => $data["car_model"],
+            ":fuel_type_id"   => $data["fuel_type"],
+            ":engine_size_id" => $data["engine_size"],
+        ]);
+    
+        echo json_encode([
+            "success" => true,
+            "message" => "Sikeres foglalás"
+        ]);
+    
+    } catch (PDOException $e) {
+        echo json_encode([
+            "success" => false,
+            "message" => $e->getMessage()
+        ]);
+    }    
 }
 
 function createWorkProcess ($pdo, $data) {
+    echo "A data a createWorkProcess-ben<pre>";
+    print_r($data);
+    echo "</pre>";
     try {
         $stmt = $pdo->prepare("
             INSERT INTO work_process (
                 vehicle_id,
                 appointment_date,
-                appointment_time
+                appointment_time,
+                issued_at
             ) VALUES (
                 :vehicle_id,
                 :date,
-                :time
+                :time,
+                :issued_at
             )
         ");
     
         $stmt->execute([
             ":date"       => $data["appointment_date"],
             ":time"       => $data["appointment_time"],
+            ":issued_at"  => date("Y-m-d H:i:s"),
             ":vehicle_id" => $data["vehicle_id"],
         ]);
     
@@ -109,16 +159,16 @@ function createWorkProcess ($pdo, $data) {
     }    
 }
 
-$data = [
-    "appointment_date" => $appointment_date,
-    "appointment_time" => $appointment_time
-];
-
 if($vehicleIds) {
     $data["vehicle_id"] = $vehicleIds[0];
     createWorkProcess($pdo, $data);
 } else {
-    registerVehicle($pdo);
+    $data["user_id"]     = $user_id;
+    $data["fuel_type"]   = $fuel_type;
+    $data["engine_size"] = $engine_size;
+    registerVehicle($pdo, $data);
+
+    $data["vehicle_id"] = $pdo->lastInsertId();
     createWorkProcess($pdo, $data);
 }
 /*
