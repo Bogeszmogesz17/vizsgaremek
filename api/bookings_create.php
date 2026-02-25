@@ -49,14 +49,11 @@ $fuel_type        = $data["fuel_type"];
 $engine_size      = $data["engine_size"] ?? null;
 
 
-echo "A data a legelején<pre>";
-print_r($data);
-echo "</pre>";
-
 
 //CSAK TESZTELÉSHEZ, AMÍG NINCS RENDESEN MEGCSINÁLVA A SELECT MEZŐK!!!!!!!!!!!!
-$car_model = 2;
-$fuel_type = 2;
+$car_model   = 2;
+$fuel_type   = 2;
+$service     = 1;
 $engine_size = 3;
 
 $stmt = $pdo->prepare("SELECT id FROM vehicles WHERE user_id = :user_id AND fuel_type_id = :fuel_type_id AND engine_size_id = :engine_size_id AND model_id = :model_id");
@@ -73,15 +70,9 @@ $stmt->execute();
 
 // Fetch results
 $vehicleIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-echo "<pre>";
-print_r($vehicleIds);
-echo "</pre>";
 
+$status = false;
 function registerVehicle($pdo, $data) {
-    echo "A data a registerVehicle-ben<pre>";
-    print_r($data);
-    echo "</pre>";
-    print_r($data);
     try {
         $stmt = $pdo->prepare("
             INSERT INTO vehicles (
@@ -106,12 +97,7 @@ function registerVehicle($pdo, $data) {
             ":fuel_type_id"   => $data["fuel_type"],
             ":engine_size_id" => $data["engine_size"],
         ]);
-    
-        echo json_encode([
-            "success" => true,
-            "message" => "Sikeres foglalás"
-        ]);
-    
+
     } catch (PDOException $e) {
         echo json_encode([
             "success" => false,
@@ -121,9 +107,6 @@ function registerVehicle($pdo, $data) {
 }
 
 function createWorkProcess ($pdo, $data) {
-    echo "A data a createWorkProcess-ben<pre>";
-    print_r($data);
-    echo "</pre>";
     try {
         $stmt = $pdo->prepare("
             INSERT INTO work_process (
@@ -145,12 +128,7 @@ function createWorkProcess ($pdo, $data) {
             ":issued_at"  => date("Y-m-d H:i:s"),
             ":vehicle_id" => $data["vehicle_id"],
         ]);
-    
-        echo json_encode([
-            "success" => true,
-            "message" => "Sikeres foglalás"
-        ]);
-    
+
     } catch (PDOException $e) {
         echo json_encode([
             "success" => false,
@@ -159,9 +137,40 @@ function createWorkProcess ($pdo, $data) {
     }    
 }
 
+function createWorkProcessService ($pdo, $data) {
+    try {
+        $stmt = $pdo->prepare("
+            INSERT INTO work_process_services (
+                service_id,
+                work_process_id
+            ) VALUES (
+                :service_id,
+                :work_process_id
+            )
+        ");
+    
+        $stmt->execute([
+            ":service_id"       => $data["service_id"],
+            ":work_process_id"  => $data["work_process_id"],
+        ]);
+
+        $status = true;
+        return $status;
+    
+    } catch (PDOException $e) {
+        echo json_encode([
+            "success" => false,
+            "message" => $e->getMessage()
+        ]);
+    }       
+}
+
 if($vehicleIds) {
     $data["vehicle_id"] = $vehicleIds[0];
     createWorkProcess($pdo, $data);
+    $data["service_id"]      = $service;
+    $data["work_process_id"] = $pdo->lastInsertId();
+    $status = createWorkProcessService($pdo, $data);
 } else {
     $data["user_id"]     = $user_id;
     $data["fuel_type"]   = $fuel_type;
@@ -170,63 +179,21 @@ if($vehicleIds) {
 
     $data["vehicle_id"] = $pdo->lastInsertId();
     createWorkProcess($pdo, $data);
+
+    $data["service_id"]      = $service;
+    $data["work_process_id"] = $pdo->lastInsertId();
+    $status = createWorkProcessService($pdo, $data);
 }
-/*
 
-// ===============================
-// MENTÉS
-// ===============================
-try {
-    $stmt = $pdo->prepare("
-        INSERT INTO bookings (
-            user_id,
-            appointment_date,
-            appointment_time,
-            service,
-            car_brand,
-            car_model,
-            car_year,
-            fuel_type,
-            engine_size
-        ) VALUES (
-            :user_id,
-            :date,
-            :time,
-            :service,
-            :brand,
-            :model,
-            :year,
-            :fuel,
-            :engine
-        )
-    ");
-
-    $stmt->execute([
-        ":user_id" => $user_id,
-        ":date"    => $appointment_date,
-        ":time"    => $appointment_time,
-        ":service" => $service,
-        ":brand"   => $car_brand,
-        ":model"   => $car_model,
-        ":year"    => $car_year,
-        ":fuel"    => $fuel_type,
-        ":engine"  => $engine_size
-    ]);
-
+if($status) {
     echo json_encode([
         "success" => true,
         "message" => "Sikeres foglalás"
-    ]);
-
-} catch (PDOException $e) {
+    ]);    
+} else {
     echo json_encode([
         "success" => false,
-        "message" => $e->getMessage()
+        "message" => $vehicleIds
     ]);
 }
-*/
 
-echo json_encode([
-    "success" => false,
-    "message" => $vehicleIds
-]);
