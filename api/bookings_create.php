@@ -56,7 +56,18 @@ $fuel_type   = 2;
 $service     = 1;
 $engine_size = 3;
 
-$stmt = $pdo->prepare("SELECT id FROM vehicles WHERE user_id = :user_id AND fuel_type_id = :fuel_type_id AND engine_size_id = :engine_size_id AND model_id = :model_id");
+
+//echo $user_id . " / " . $car_model . " / " . $fuel_type . " / " . $engine_size . " / " . $car_year;
+
+$stmt = $pdo->prepare("
+    SELECT id 
+    FROM vehicles 
+    WHERE user_id = :user_id 
+    AND fuel_type_id = :fuel_type_id 
+    AND engine_size_id = :engine_size_id 
+    AND model_id = :model_id
+    AND year = :year
+");
 
 // Bind parameter
 
@@ -64,12 +75,19 @@ $stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
 $stmt->bindParam(':model_id', $car_model, PDO::PARAM_INT);
 $stmt->bindParam(':fuel_type_id', $fuel_type, PDO::PARAM_INT);
 $stmt->bindParam(':engine_size_id', $engine_size, PDO::PARAM_INT);
+$stmt->bindParam(':year', $car_year, PDO::PARAM_INT);
 
 // Execute
 $stmt->execute();
 
 // Fetch results
 $vehicleIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+/*
+echo "<pre>";
+print_r($vehicleIds);
+echo "</pre>";
+*/
 
 $status = false;
 function registerVehicle($pdo, $data) {
@@ -175,6 +193,7 @@ if($vehicleIds) {
     $data["user_id"]     = $user_id;
     $data["fuel_type"]   = $fuel_type;
     $data["engine_size"] = $engine_size;
+    $data["car_model"]   = $car_model;
     registerVehicle($pdo, $data);
 
     $data["vehicle_id"] = $pdo->lastInsertId();
@@ -193,7 +212,7 @@ if($status) {
 } else {
     echo json_encode([
         "success" => false,
-        "message" => $vehicleIds
+        "message" => "Sikertelen foglalás",
     ]);
 }
 
