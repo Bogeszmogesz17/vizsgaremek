@@ -1,45 +1,30 @@
-// ===============================
-// SZOLGÁLTATÁSOK OLDAL
-// Hosszú, egymás alatti hasábok
-// ===============================
+import { useState, useEffect } from "react";
 
 export default function Services() {
+  const [services, setServices] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   // -------------------------------
-  // Szolgáltatások listája
-  // (később adatbázisból)
+  // Adatok betöltése adatbázisból
   // -------------------------------
-  const services = [
-    {
-      title: "Gumizás/Centrírozás",
-      description:
-        "Nyári és téli gumik cseréje, szerelése és ellenőrzése modern eszközökkel. Kerekek pontos centrírozása a vibráció csökkentése és a komfortos vezetés érdekében."
-    },
-    {
-      title: "Átvizsgálás",
-      description:
-        "Általános műszaki átvizsgálás, amely segít feltárni a rejtett hibákat."
-    },
-    {
-      title: "Motor- és futómű felújítás / karbantartás",
-      description:
-        "Motor és futómű elemek javítása, karbantartása a hosszú élettartam érdekében."
-    },
-    {
-      title: "Dióhéjas szívósor tisztítás",
-      description:
-        "Speciális dióhéjas technológiával végzett szívósor tisztítás a hatékonyabb motor működésért."
-    },
-    {
-      title: "Kipufogó gyártás / javítás",
-      description:
-        "Egyedi kipufogó elemek gyártása és meglévő rendszerek javítása."
-    }
-  ];
+  useEffect(() => {
+    fetch("http://localhost/vizsga/api/services.php", {
+      credentials: "include",
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setServices(data.services);
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }, []);
 
   return (
     <div className="space-y-12 max-w-4xl mx-auto">
 
-      {/* ---------- CÍM ÉS LEÍRÁS ---------- */}
+      {/* ---------- CÍM ---------- */}
       <section className="text-center">
         <h1 className="text-4xl font-bold text-red-600">
           Szolgáltatásaink
@@ -51,21 +36,22 @@ export default function Services() {
         </p>
       </section>
 
+      {/* ---------- TÖLTÉS ---------- */}
+      {loading && (
+        <p className="text-center text-gray-400">Betöltés...</p>
+      )}
+
       {/* ---------- SZOLGÁLTATÁS LISTA ---------- */}
       <section className="space-y-4">
 
-        {services.map((service, index) => (
+        {services.map((service) => (
           <div
-            key={index}
+            key={service.id}
             className="bg-gray-900 hover:bg-gray-800 transition p-6 rounded-lg border border-gray-800"
           >
             <h3 className="text-xl font-semibold text-white">
-              {service.title}
+              {service.name}
             </h3>
-
-            <p className="text-gray-400 mt-2">
-              {service.description}
-            </p>
 
             <p className="text-sm text-gray-500 mt-3">
               Ár: helyszíni egyeztetés alapján

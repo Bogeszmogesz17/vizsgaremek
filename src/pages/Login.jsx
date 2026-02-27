@@ -74,14 +74,14 @@ export default function Login() {
             checked={role === "admin"}
             onChange={() => setRole("admin")}
           />
-          Admin
+          Szerelő
         </label>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          type={role === "admin" ? "text" : "email"}
-          placeholder={role === "admin" ? "Felhasználónév" : "E-mail cím"}
+          type= "email"
+          placeholder = "E-mail cím"
           value={email}
           onChange={e => setEmail(e.target.value)}
           className="w-full p-3 bg-black rounded border border-gray-700"

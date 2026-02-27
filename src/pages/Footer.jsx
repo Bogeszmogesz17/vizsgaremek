@@ -34,10 +34,10 @@ export default function Footer() {
         <div className="space-y-3">
           <h4 className="text-white font-semibold mb-2">Kapcsolat</h4>
           <div className="text-gray-400 text-sm space-y-1">
-            <p>📍 1234 Budapest, Szerviz utca 42.</p>
+            <p>📍 2699, Szügy, Béke ÚT 9.</p>
             <p>📞 +36 30 123 4567</p>
-            <p>✉️ info@autoszervizpro.hu</p>
-            <p className="pt-2 text-red-500 font-medium">H-P: 08:00 - 17:00</p>
+            <p>✉️ info@dupladugattyu.hu</p>
+            <p className="pt-2 text-red-500 font-medium">H-P: 08:00 - 16:00</p>
           </div>
         </div>
       </div>
