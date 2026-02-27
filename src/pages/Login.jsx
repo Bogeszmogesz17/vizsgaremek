@@ -4,10 +4,11 @@ import { useNavigate } from "react-router-dom";
 export default function Login() {
   const navigate = useNavigate();
 
-  const [role, setRole] = useState("user"); // user | admin
+  const [role, setRole] = useState("user");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -80,21 +81,31 @@ export default function Login() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          type= "email"
-          placeholder = "E-mail cím"
+          type="email"
+          placeholder="E-mail cím"
           value={email}
           onChange={e => setEmail(e.target.value)}
           className="w-full p-3 bg-black rounded border border-gray-700"
         />
 
 
-        <input
-          type="password"
-          placeholder="Jelszó"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          className="w-full p-3 bg-black rounded border border-gray-700"
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Jelszó"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+          />
+
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
 
         <button
           type="submit"
