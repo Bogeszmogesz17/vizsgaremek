@@ -49,14 +49,6 @@ $fuel_type        = $data["fuel_type"];
 $engine_size      = $data["engine_size"] ?? null;
 
 
-
-//CSAK TESZTELÉSHEZ, AMÍG NINCS RENDESEN MEGCSINÁLVA A SELECT MEZŐK!!!!!!!!!!!!
-$car_model   = 2;
-$fuel_type   = 2;
-$service     = 1;
-$engine_size = 3;
-
-
 //echo $user_id . " / " . $car_model . " / " . $fuel_type . " / " . $engine_size . " / " . $car_year;
 
 $stmt = $pdo->prepare("

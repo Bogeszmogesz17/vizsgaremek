@@ -18,18 +18,20 @@ import Booking from "./pages/Booking";
 import Contact from "./pages/Contact";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
+import Footer from "./pages/Footer";
 
 export default function App() {
   return (
     <BrowserRouter>
-      {/* FONTOS: a layout maradhat, de a main NE NYELJE EL az oldalt */}
+      {/* A flex-col és a min-h-screen biztosítja, hogy ha rövid az oldal, 
+        akkor is a képernyő legalján maradjon a footer.
+      */}
       <div className="min-h-screen bg-black text-white flex flex-col">
 
         {/* ---------- NAVBAR ---------- */}
         <Navbar />
 
         {/* ---------- OLDAL TARTALOM ---------- */}
-        {/* ⬇️ EZ A SOR A KULCS */}
         <main className="flex-1">
           <Routes>
             {/* PUBLIC */}
@@ -41,12 +43,15 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/fiok" element={<Account />} />
 
-            {/* ADMIN */}
+            {/* ADMIN (Itt rejtve lesz a footer) */}
             <Route path="/admin-setup" element={<AdminSetup />} />
             <Route path="/admin-login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminDashboard />} />
           </Routes>
         </main>
+
+        {/* ---------- FOOTER ---------- */}
+        <Footer />
 
       </div>
     </BrowserRouter>
