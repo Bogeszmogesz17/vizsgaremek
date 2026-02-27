@@ -52,10 +52,6 @@ export default function Services() {
             <h3 className="text-xl font-semibold text-white">
               {service.name}
             </h3>
-
-            <p className="text-sm text-gray-500 mt-3">
-              Ár: helyszíni egyeztetés alapján
-            </p>
           </div>
         ))}
 

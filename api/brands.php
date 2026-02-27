@@ -5,21 +5,12 @@ require_once "db.php";
 header("Content-Type: application/json");
 
 try {
-    $stmt = $pdo->query("
-        SELECT 
-            id,
-            name,
-            price
-        FROM services
-        WHERE is_bookable = 1
-        ORDER BY name ASC
-    ");
-    
+    $stmt = $pdo->query("SELECT id, brand_name FROM brand ORDER BY brand_name ASC");
+
     echo json_encode([
         "success" => true,
-        "services" => $stmt->fetchAll(PDO::FETCH_ASSOC)
+        "brands" => $stmt->fetchAll(PDO::FETCH_ASSOC)
     ]);
-
 } catch (PDOException $e) {
     echo json_encode([
         "success" => false,

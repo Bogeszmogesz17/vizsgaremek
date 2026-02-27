@@ -1,22 +1,34 @@
 <?php
+
+// ===== CORS =====
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    header("Access-Control-Allow-Origin: http://localhost:5173");
+    header("Access-Control-Allow-Credentials: true");
+    header("Access-Control-Allow-Methods: POST, GET, OPTIONS");
+    header("Access-Control-Allow-Headers: Content-Type");
+    http_response_code(200);
+    exit();
+}
+
+header("Access-Control-Allow-Origin: http://localhost:5173");
+header("Access-Control-Allow-Credentials: true");
+header("Content-Type: application/json");
+
+// ========================================
+
 require "./core/settings.php";
-
-
-// ===============================
-// BEJELENTKEZÉS ELLENŐRZÉS
-// ===============================
-isUser();
-
-$user_id = $_SESSION["user_id"];
-
-// ===============================
-// DB
-// ===============================
 require_once "db.php";
 
-// ===============================
-// ADATOK BEOLVASÁSA
-// ===============================
+session_start();
+
+if (!isset($_SESSION["user_id"])) {
+    echo json_encode(["success" => false, "message" => "Nincs bejelentkezve"]);
+    exit;
+}
+
+$user_id = $_SESSION["user_id"];
+require_once "db.php";
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 $required = [
@@ -41,170 +53,106 @@ foreach ($required as $field) {
 
 $appointment_date = $data["appointment_date"];
 $appointment_time = $data["appointment_time"];
-$service          = $data["service"];
-$car_brand        = $data["car_brand"];
-$car_model        = $data["car_model"];
+$service_id       = (int)$data["service"];
+$car_model        = (int)$data["car_model"];
 $car_year         = (int)$data["car_year"];
-$fuel_type        = $data["fuel_type"];
-$engine_size      = $data["engine_size"] ?? null;
+$fuel_type        = (int)$data["fuel_type"];
+$engine_size      = $data["engine_size"] ? (int)$data["engine_size"] : null;
 
+try {
 
-//echo $user_id . " / " . $car_model . " / " . $fuel_type . " / " . $engine_size . " / " . $car_year;
+    $pdo->beginTransaction();
 
-$stmt = $pdo->prepare("
-    SELECT id 
-    FROM vehicles 
-    WHERE user_id = :user_id 
-    AND fuel_type_id = :fuel_type_id 
-    AND engine_size_id = :engine_size_id 
-    AND model_id = :model_id
-    AND year = :year
-");
+    // =====================================
+    // 1️⃣ Megnézzük van-e már ilyen jármű
+    // =====================================
+    $stmt = $pdo->prepare("
+        SELECT id 
+        FROM vehicles 
+        WHERE user_id = ?
+        AND model_id = ?
+        AND year = ?
+        AND fuel_type_id = ?
+        AND (engine_size_id = ? OR engine_size_id IS NULL)
+        LIMIT 1
+    ");
 
-// Bind parameter
+    $stmt->execute([
+        $user_id,
+        $car_model,
+        $car_year,
+        $fuel_type,
+        $engine_size
+    ]);
 
-$stmt->bindParam(':user_id', $user_id, PDO::PARAM_INT);
-$stmt->bindParam(':model_id', $car_model, PDO::PARAM_INT);
-$stmt->bindParam(':fuel_type_id', $fuel_type, PDO::PARAM_INT);
-$stmt->bindParam(':engine_size_id', $engine_size, PDO::PARAM_INT);
-$stmt->bindParam(':year', $car_year, PDO::PARAM_INT);
+    $vehicle_id = $stmt->fetchColumn();
 
-// Execute
-$stmt->execute();
+    // =====================================
+    // 2️⃣ Ha nincs, létrehozzuk
+    // =====================================
+    if (!$vehicle_id) {
 
-// Fetch results
-$vehicleIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-/*
-echo "<pre>";
-print_r($vehicleIds);
-echo "</pre>";
-*/
-
-$status = false;
-function registerVehicle($pdo, $data) {
-    try {
         $stmt = $pdo->prepare("
-            INSERT INTO vehicles (
-                year,
-                user_id,
-                model_id,
-                fuel_type_id,
-                engine_size_id
-            ) VALUES (
-                :year,
-                :user_id,
-                :model_id,
-                :fuel_type_id,
-                :engine_size_id
-            )
+            INSERT INTO vehicles
+            (user_id, model_id, year, fuel_type_id, engine_size_id, active)
+            VALUES (?, ?, ?, ?, ?, 1)
         ");
-    
+
         $stmt->execute([
-            ":year"           => (int)$data["car_year"],
-            ":user_id"        => $data["user_id"],
-            ":model_id"       => $data["car_model"],
-            ":fuel_type_id"   => $data["fuel_type"],
-            ":engine_size_id" => $data["engine_size"],
+            $user_id,
+            $car_model,
+            $car_year,
+            $fuel_type,
+            $engine_size
         ]);
 
-    } catch (PDOException $e) {
-        echo json_encode([
-            "success" => false,
-            "message" => $e->getMessage()
-        ]);
-    }    
-}
+        $vehicle_id = $pdo->lastInsertId();
+    }
 
-function createWorkProcess ($pdo, $data) {
-    try {
-        $stmt = $pdo->prepare("
-            INSERT INTO work_process (
-                vehicle_id,
-                appointment_date,
-                appointment_time,
-                issued_at
-            ) VALUES (
-                :vehicle_id,
-                :date,
-                :time,
-                :issued_at
-            )
-        ");
-    
-        $stmt->execute([
-            ":date"       => $data["appointment_date"],
-            ":time"       => $data["appointment_time"],
-            ":issued_at"  => date("Y-m-d H:i:s"),
-            ":vehicle_id" => $data["vehicle_id"],
-        ]);
+    // =====================================
+    // 3️⃣ work_process beszúrás
+    // =====================================
+    $stmt = $pdo->prepare("
+        INSERT INTO work_process
+        (vehicle_id, appointment_date, appointment_time, status, issued_at, work_price, material_price, method_id, invoices_id)
+        VALUES (?, ?, ?, 'booked', NOW(), 0, 0, NULL, NULL)
+    ");
 
-    } catch (PDOException $e) {
-        echo json_encode([
-            "success" => false,
-            "message" => $e->getMessage()
-        ]);
-    }    
-}
+    $stmt->execute([
+        $vehicle_id,
+        $appointment_date,
+        $appointment_time
+    ]);
 
-function createWorkProcessService ($pdo, $data) {
-    try {
-        $stmt = $pdo->prepare("
-            INSERT INTO work_process_services (
-                service_id,
-                work_process_id
-            ) VALUES (
-                :service_id,
-                :work_process_id
-            )
-        ");
-    
-        $stmt->execute([
-            ":service_id"       => $data["service_id"],
-            ":work_process_id"  => $data["work_process_id"],
-        ]);
+    $work_process_id = $pdo->lastInsertId();
 
-        $status = true;
-        return $status;
-    
-    } catch (PDOException $e) {
-        echo json_encode([
-            "success" => false,
-            "message" => $e->getMessage()
-        ]);
-    }       
-}
+    // =====================================
+    // 4️⃣ work_process_services beszúrás
+    // =====================================
+    $stmt = $pdo->prepare("
+        INSERT INTO work_process_services
+        (work_process_id, service_id)
+        VALUES (?, ?)
+    ");
 
-if($vehicleIds) {
-    $data["vehicle_id"] = $vehicleIds[0];
-    createWorkProcess($pdo, $data);
-    $data["service_id"]      = $service;
-    $data["work_process_id"] = $pdo->lastInsertId();
-    $status = createWorkProcessService($pdo, $data);
-} else {
-    $data["user_id"]     = $user_id;
-    $data["fuel_type"]   = $fuel_type;
-    $data["engine_size"] = $engine_size;
-    $data["car_model"]   = $car_model;
-    registerVehicle($pdo, $data);
+    $stmt->execute([
+        $work_process_id,
+        $service_id
+    ]);
 
-    $data["vehicle_id"] = $pdo->lastInsertId();
-    createWorkProcess($pdo, $data);
+    $pdo->commit();
 
-    $data["service_id"]      = $service;
-    $data["work_process_id"] = $pdo->lastInsertId();
-    $status = createWorkProcessService($pdo, $data);
-}
-
-if($status) {
     echo json_encode([
         "success" => true,
         "message" => "Sikeres foglalás"
-    ]);    
-} else {
+    ]);
+
+} catch (Exception $e) {
+
+    $pdo->rollBack();
+
     echo json_encode([
         "success" => false,
-        "message" => "Sikertelen foglalás",
+        "message" => $e->getMessage()
     ]);
 }
-
