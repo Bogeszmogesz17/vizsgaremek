@@ -2,48 +2,109 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Account() {
+  const navigate = useNavigate();
+
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Profil szerkesztés
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editAddress, setEditAddress] = useState("");
+  const [editSettlementId, setEditSettlementId] = useState("");
+
+  // Jelszó módosítás
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPassword2, setNewPassword2] = useState("");
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
+
   const [msg, setMsg] = useState("");
-  const [msgType, setMsgType] = useState(""); // success | error
+  const [msgType, setMsgType] = useState("");
 
-  const navigate = useNavigate();
-
-  // 🔐 SESSION CHECK + ADATOK
+  // ===============================
+  // USER BETÖLTÉS
+  // ===============================
   useEffect(() => {
     fetch("http://localhost/vizsga/api/me.php", {
       credentials: "include"
     })
       .then(res => res.json())
       .then(data => {
-        if (!data.success) {
+        if (!data.success || !data.user) {
           navigate("/login");
           return;
         }
 
         setUser(data.user);
+
+        // Edit mezők feltöltése
+        setEditName(data.user.name || "");
+        setEditEmail(data.user.email || "");
+        setEditPhone(data.user.phone || "");
+        setEditAddress(data.user.address || "");
+        setEditSettlementId(data.user.settlement_id || "");
+
         setLoading(false);
       })
       .catch(() => {
         navigate("/login");
       });
-  }, []);
+  }, [navigate]);
 
-  // ⏳ BETÖLTÉS
-  if (loading) {
-    return (
-      <p className="text-center text-gray-400 mt-10">
-        Betöltés...
-      </p>
-    );
-  }
+  // ===============================
+  // PROFIL MÓDOSÍTÁS
+  // ===============================
+  const handleProfileUpdate = async () => {
+    setMsg("");
 
-  // 🔑 JELSZÓ MÓDOSÍTÁS
+    try {
+      const res = await fetch(
+        "http://localhost/vizsga/api/update_profile.php",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            name: editName,
+            email: editEmail,
+            phone: editPhone,
+            address: editAddress,
+            settlement_id: editSettlementId
+          })
+        }
+      );
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setMsg(data.message || "Hiba történt");
+        setMsgType("error");
+        return;
+      }
+
+      setMsg("Profil frissítve");
+      setMsgType("success");
+
+      setUser({
+        ...user,
+        name: editName,
+        email: editEmail,
+        phone: editPhone,
+        address: editAddress
+      });
+
+    } catch {
+      setMsg("Szerverhiba");
+      setMsgType("error");
+    }
+  };
+
+  // ===============================
+  // JELSZÓ MÓDOSÍTÁS
+  // ===============================
   const handlePasswordChange = async () => {
     setMsg("");
 
@@ -76,7 +137,7 @@ export default function Account() {
       const data = await res.json();
 
       if (!data.success) {
-        setMsg(data.message);
+        setMsg(data.message || "Hiba történt");
         setMsgType("error");
         return;
       }
@@ -94,6 +155,20 @@ export default function Account() {
     }
   };
 
+  // ===============================
+  // LOADING
+  // ===============================
+  if (loading) {
+    return (
+      <p className="text-center text-gray-400 mt-10">
+        Betöltés...
+      </p>
+    );
+  }
+
+  // ===============================
+  // RENDER
+  // ===============================
   return (
     <div className="max-w-lg mx-auto bg-gray-900 p-8 rounded text-white">
       <h1 className="text-3xl font-bold text-red-600 mb-6 text-center">
@@ -111,6 +186,56 @@ export default function Account() {
 
       <hr className="my-6 border-gray-700" />
 
+      {/* PROFIL SZERKESZTÉS */}
+      <button
+        onClick={() => setShowEditForm(!showEditForm)}
+        className="w-full bg-gray-800 hover:bg-gray-700 p-3 rounded font-semibold"
+      >
+        {showEditForm ? "Profil módosítás elrejtése" : "Profil adatok módosítása"}
+      </button>
+
+      {showEditForm && (
+        <div className="mt-6">
+          <input
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            className="w-full mb-3 p-3 bg-black rounded"
+            placeholder="Név"
+          />
+
+          <input
+            value={editEmail}
+            onChange={(e) => setEditEmail(e.target.value)}
+            className="w-full mb-3 p-3 bg-black rounded"
+            placeholder="Email"
+          />
+
+          <input
+            value={editPhone}
+            onChange={(e) => setEditPhone(e.target.value)}
+            className="w-full mb-3 p-3 bg-black rounded"
+            placeholder="Telefonszám"
+          />
+
+          <input
+            value={editAddress}
+            onChange={(e) => setEditAddress(e.target.value)}
+            className="w-full mb-4 p-3 bg-black rounded"
+            placeholder="Lakcím"
+          />
+
+          <button
+            onClick={handleProfileUpdate}
+            className="w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
+          >
+            Adatok mentése
+          </button>
+        </div>
+      )}
+
+      <hr className="my-6 border-gray-700" />
+
+      {/* JELSZÓ MÓDOSÍTÁS */}
       <button
         onClick={() => setShowPasswordForm(!showPasswordForm)}
         className="w-full bg-gray-800 hover:bg-gray-700 p-3 rounded font-semibold"
@@ -120,10 +245,6 @@ export default function Account() {
 
       {showPasswordForm && (
         <div className="mt-6">
-          <h2 className="text-xl font-semibold mb-4">
-            Jelszó módosítása
-          </h2>
-
           <input
             type="password"
             placeholder="Jelenlegi jelszó"
@@ -154,18 +275,16 @@ export default function Account() {
           >
             Jelszó módosítása
           </button>
+        </div>
+      )}
 
-          {msg && (
-            <div
-              className={`mt-4 p-3 rounded text-center ${
-                msgType === "success"
-                  ? "bg-green-600"
-                  : "bg-red-600"
-              }`}
-            >
-              {msg}
-            </div>
-          )}
+      {msg && (
+        <div
+          className={`mt-4 p-3 rounded text-center ${
+            msgType === "success" ? "bg-green-600" : "bg-red-600"
+          }`}
+        >
+          {msg}
         </div>
       )}
 

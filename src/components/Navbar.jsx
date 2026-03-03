@@ -6,6 +6,7 @@ export default function Navbar() {
   const [auth, setAuth] = useState(null);
   const navigate = useNavigate();
 
+  // SESSION ELLENŐRZÉS
   useEffect(() => {
     fetch("http://localhost/vizsga/api/session_check.php", {
       credentials: "include",
@@ -15,12 +16,14 @@ export default function Navbar() {
       .catch(() => setAuth({ loggedIn: false }));
   }, []);
 
+  // LOGOUT
   const logout = async () => {
     await fetch("http://localhost/vizsga/api/logout.php", {
       credentials: "include",
     });
+
     setAuth({ loggedIn: false });
-    navigate("/");
+    window.location.href = "/"; // teljes reload biztos frissítéshez
   };
 
   return (
@@ -44,7 +47,7 @@ export default function Navbar() {
             <li><Link to="/kapcsolat" className="hover:text-red-600">Kapcsolat</Link></li>
           </ul>
 
-          {/* AUTH */}
+          {/* AUTH RÉSZ */}
           {auth === null ? null : !auth.loggedIn ? (
             <div className="flex items-center gap-4">
               <Link to="/login">Bejelentkezés</Link>
@@ -58,7 +61,7 @@ export default function Navbar() {
           ) : (
             <div className="flex items-center gap-4">
 
-              {/* 👑 ADMIN */}
+              {/* ADMIN */}
               {auth.role === "admin" && (
                 <Link
                   to="/admin"
@@ -68,7 +71,7 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {/* 👤 USER */}
+              {/* USER */}
               {auth.role === "user" && (
                 <Link to="/fiok" className="hover:text-red-600">
                   Fiókom
@@ -85,7 +88,7 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* MOBIL */}
+        {/* MOBIL TOGGLE */}
         <button
           className="text-white text-2xl md:hidden"
           onClick={() => setMenuOpen(!menuOpen)}
@@ -117,11 +120,13 @@ export default function Navbar() {
                     Admin felület
                   </Link>
                 )}
+
                 {auth.role === "user" && (
                   <Link to="/fiok" className="block px-6 py-3">
                     Fiókom
                   </Link>
                 )}
+
                 <button
                   onClick={logout}
                   className="block w-full text-left px-6 py-3 text-red-600"

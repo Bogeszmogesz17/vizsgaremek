@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -39,11 +39,11 @@ export default function Login() {
         return;
       }
 
-      // 👉 SIKERES BELÉPÉS
+      // ✅ TELJES RELOAD → Navbar frissül
       if (role === "admin") {
-        navigate("/admin");
+        window.location.href = "/admin";
       } else {
-        navigate("/");
+        window.location.href = "/";
       }
 
     } catch {
@@ -88,7 +88,6 @@ export default function Login() {
           className="w-full p-3 bg-black rounded border border-gray-700"
         />
 
-
         <div className="relative">
           <input
             type={showPassword ? "text" : "password"}
@@ -114,6 +113,17 @@ export default function Login() {
           Belépés
         </button>
       </form>
+
+      {/* JAVÍTOTT ROUTE */}
+      <p className="text-center text-gray-400 mt-4">
+        Még nem vagy regisztrálva?{" "}
+        <Link
+          to="/regisztracio"
+          className="text-red-500 hover:text-red-400 font-semibold"
+        >
+          Regisztrálj itt
+        </Link>
+      </p>
 
       {error && (
         <p className="text-red-500 text-center mt-4">

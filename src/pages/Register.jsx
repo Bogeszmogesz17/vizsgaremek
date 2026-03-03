@@ -7,10 +7,14 @@ export default function Register() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [address, setAddress] = useState("");
   const [postalCode, setPostalCode] = useState("");
   const [settlementName, setSettlementName] = useState("");
   const [settlementId, setSettlementId] = useState("");
+  const [phone, setPhone] = useState("");
 
   const [settlements, setSettlements] = useState([]);
   const [selectedSettlement, setSelectedSettlement] = useState("");
@@ -53,7 +57,26 @@ export default function Register() {
   const handleRegister = async (e) => {
     e.preventDefault();
 
-    if (!name || !email || !password || !settlementId || !address) {
+    // Jelszó szabály ellenőrzés
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d).{8,}$/;
+
+    if (!passwordRegex.test(password)) {
+      setModalMessage(
+        "A jelszónak minimum 8 karakteresnek kell lennie, tartalmaznia kell legalább 1 nagybetűt és 1 számot."
+      );
+      setModalSuccess(false);
+      setModalOpen(true);
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setModalMessage("A két jelszó nem egyezik.");
+      setModalSuccess(false);
+      setModalOpen(true);
+      return;
+    }
+
+    if (!name || !email || !password || !phone || !settlementId || !address) {
       setModalMessage("Minden mező kitöltése kötelező");
       setModalSuccess(false);
       setModalOpen(true);
@@ -67,6 +90,7 @@ export default function Register() {
         body: JSON.stringify({
           name,
           email,
+          phone,
           password,
           settlement_id: settlementId,
           address
@@ -116,6 +140,14 @@ export default function Register() {
           />
 
           <input
+            type="tel"
+            placeholder="Telefonszám"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            className="w-full p-3 bg-black rounded"
+          />
+
+          <input
             type="text"
             placeholder="Irányítószám"
             value={postalCode}
@@ -139,13 +171,41 @@ export default function Register() {
             className="w-full p-3 bg-black rounded"
           />
 
-          <input
-            type="password"
-            className="w-full p-3 bg-black rounded"
-            placeholder="Jelszó"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="relative">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Jelszó"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            >
+              {showPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
+
+          <div className="relative">
+            <input
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Jelszó megerősítése"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+            />
+
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+            >
+              {showConfirmPassword ? "🙈" : "👁️"}
+            </button>
+          </div>
 
           <button
             type="submit"

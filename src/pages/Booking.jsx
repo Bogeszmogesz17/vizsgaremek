@@ -70,11 +70,12 @@ export default function Booking() {
   }, [carBrand]);
 
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/services.php", {
+    fetch("http://localhost/vizsga/api/bookable_services.php?bookable=1", {
       credentials: "include"
     })
       .then(res => res.json())
       .then(data => {
+        console.log("BOOKABLE SERVICES:", data); // ideiglenes debug
         if (data.success) {
           setServices(data.services);
         }
