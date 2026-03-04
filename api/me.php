@@ -11,29 +11,27 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 try {
+
     $stmt = $pdo->prepare("
         SELECT 
             u.id,
             u.name,
             u.email,
-            u.phone,
+            u.phone_number,
             u.address,
             u.settlement_id,
             s.post_code,
             s.settlement_name,
             u.created_at
         FROM users u
-        LEFT JOIN settlements s ON u.settlement_id = s.id
+        LEFT JOIN settlement s 
+            ON u.settlement_id = s.id
         WHERE u.id = ?
     ");
 
     $stmt->execute([$_SESSION['user_id']]);
-    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if (!$user) {
-        echo json_encode(["success" => false]);
-        exit;
-    }
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     echo json_encode([
         "success" => true,
@@ -43,6 +41,6 @@ try {
 } catch (PDOException $e) {
     echo json_encode([
         "success" => false,
-        "message" => "Adatbázis hiba"
+        "error" => $e->getMessage()
     ]);
 }

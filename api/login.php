@@ -2,6 +2,16 @@
 require "./core/settings.php";
 require_once "db.php";
 
+
+
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => 'localhost',
+    'secure' => false,
+    'httponly' => true,
+    'samesite' => 'None'
+]);
 session_start();
 
 $data = json_decode(file_get_contents("php://input"), true);

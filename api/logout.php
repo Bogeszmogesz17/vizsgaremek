@@ -1,6 +1,17 @@
 <?php
 require "./core/settings.php";
 
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => 'localhost',
+    'secure' => false,
+    'httponly' => true,
+    'samesite' => 'None'
+]);
+
+session_start();
+
 // SESSION TÖRLÉS
 $_SESSION = [];
 
