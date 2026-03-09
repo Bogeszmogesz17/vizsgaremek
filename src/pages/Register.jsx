@@ -14,7 +14,7 @@ export default function Register() {
   const [postalCode, setPostalCode] = useState("");
   const [settlementName, setSettlementName] = useState("");
   const [settlementId, setSettlementId] = useState("");
-  const [phone, setPhone] = useState("");
+  const [phone_number, setPhone] = useState("");
 
   const [settlements, setSettlements] = useState([]);
   const [selectedSettlement, setSelectedSettlement] = useState("");
@@ -76,7 +76,7 @@ export default function Register() {
       return;
     }
 
-    if (!name || !email || !password || !phone || !settlementId || !address) {
+    if (!name || !email || !password || !phone_number || !settlementId || !address) {
       setModalMessage("Minden mező kitöltése kötelező");
       setModalSuccess(false);
       setModalOpen(true);
@@ -90,7 +90,7 @@ export default function Register() {
         body: JSON.stringify({
           name,
           email,
-          phone,
+          phone_number,
           password,
           settlement_id: settlementId,
           address
@@ -142,7 +142,7 @@ export default function Register() {
           <input
             type="tel"
             placeholder="Telefonszám"
-            value={phone}
+            value={phone_number}
             onChange={(e) => setPhone(e.target.value)}
             className="w-full p-3 bg-black rounded"
           />

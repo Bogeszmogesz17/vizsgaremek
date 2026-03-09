@@ -10,6 +10,7 @@ if (
     empty($data["name"]) ||
     empty($data["email"]) ||
     empty($data["password"]) ||
+    empty($data["phone_number"]) ||
     empty($data["settlement_id"]) ||
     empty($data["address"])
 ) {
@@ -22,6 +23,7 @@ if (
 
 $name          = trim($data["name"]);
 $email         = trim($data["email"]);
+$phone_number = trim($data["phone_number"]);
 $password      = password_hash($data["password"], PASSWORD_DEFAULT);
 $settlement_id = (int)$data["settlement_id"];
 $address       = trim($data["address"]);
@@ -45,16 +47,18 @@ if ($check->fetch()) {
 // ===============================
 // REGISZTRÁCIÓ
 // ===============================
+
 $stmt = $pdo->prepare("
     INSERT INTO users 
-    (name, email, password, created_at, settlement_id, address)
-    VALUES (?, ?, ?, NOW(), ?, ?)
+    (name, email, password, created_at, phone_number, settlement_id, address)
+    VALUES (?, ?, ?, NOW(), ?, ?, ?)
 ");
 
 $stmt->execute([
     $name,
     $email,
     $password,
+    $phone_number,
     $settlement_id,
     $address
 ]);
