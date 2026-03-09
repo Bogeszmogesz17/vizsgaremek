@@ -22,15 +22,18 @@ require_once "db.php";
 session_start();
 
 if (!isset($_SESSION["user_id"])) {
-    echo json_encode(["success" => false, "message" => "Nincs bejelentkezve"]);
+    echo json_encode([
+        "success" => false,
+        "message" => "Nincs bejelentkezve"
+    ]);
     exit;
 }
 
 $user_id = $_SESSION["user_id"];
-require_once "db.php";
 
 $data = json_decode(file_get_contents("php://input"), true);
 
+// ===== Kötelező mezők =====
 $required = [
     "appointment_date",
     "appointment_time",
@@ -51,20 +54,21 @@ foreach ($required as $field) {
     }
 }
 
+// ===== Adatok =====
 $appointment_date = $data["appointment_date"];
 $appointment_time = $data["appointment_time"];
 $service_id       = (int)$data["service"];
 $car_model        = (int)$data["car_model"];
 $car_year         = (int)$data["car_year"];
 $fuel_type        = (int)$data["fuel_type"];
-$engine_size      = $data["engine_size"] ? (int)$data["engine_size"] : null;
+$engine_size      = $data["engine_size"] ?? null;
 
 try {
 
     $pdo->beginTransaction();
 
     // =====================================
-    // 1️⃣ Megnézzük van-e már ilyen jármű
+    // 1️⃣ Létező jármű keresése
     // =====================================
     $stmt = $pdo->prepare("
         SELECT id 
@@ -88,7 +92,7 @@ try {
     $vehicle_id = $stmt->fetchColumn();
 
     // =====================================
-    // 2️⃣ Ha nincs, létrehozzuk
+    // 2️⃣ Ha nincs → jármű létrehozása
     // =====================================
     if (!$vehicle_id) {
 
@@ -110,12 +114,12 @@ try {
     }
 
     // =====================================
-    // 3️⃣ work_process beszúrás
+    // 3️⃣ work_process létrehozása
     // =====================================
     $stmt = $pdo->prepare("
         INSERT INTO work_process
         (vehicle_id, appointment_date, appointment_time, status, issued_at, work_price, material_price, method_id, invoices_id)
-        VALUES (?, ?, ?, 'booked', NOW(), 0, 0, NULL, NULL)
+        VALUES (?, ?, ?, 0, NOW(), 0, 0, NULL, NULL)
     ");
 
     $stmt->execute([
@@ -127,7 +131,7 @@ try {
     $work_process_id = $pdo->lastInsertId();
 
     // =====================================
-    // 4️⃣ work_process_services beszúrás
+    // 4️⃣ szolgáltatás hozzárendelése
     // =====================================
     $stmt = $pdo->prepare("
         INSERT INTO work_process_services

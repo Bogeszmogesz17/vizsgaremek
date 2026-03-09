@@ -32,16 +32,43 @@ export default function Booking() {
   // ===== STATE =====
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState("");
-  const [selectedMonth, setSelectedMonth] = useState("");
-  const [selectedDay, setSelectedDay] = useState("");
-  const [selectedTime, setSelectedTime] = useState("");
+  const [bookedTimes, setBookedTimes] = useState([]);
+
 
   const [showSuccess, setShowSuccess] = useState(false);
 
   const [carBrand, setCarBrand] = useState("");
   const [carModel, setCarModel] = useState("");
-
+  const [engineSizes, setEngineSizes] = useState([]);
   const [models, setModels] = useState([]);
+
+  const [selectedMonth, setSelectedMonth] = useState("");
+  const [selectedDay, setSelectedDay] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+
+  const selectedDate =
+    selectedMonth && selectedDay
+      ? `${selectedYear}-${selectedMonth}-${selectedDay}`
+      : "";
+
+  useEffect(() => {
+
+    if (!selectedDate) return;
+
+    fetch(`http://localhost/vizsga/api/booked_times.php?date=${selectedDate}`, {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then(data => {
+
+        if (data.success) {
+          setBookedTimes(data.times);
+        }
+
+      })
+      .catch(err => console.error(err));
+
+  }, [selectedDate]);
 
   useEffect(() => {
     if (!carBrand) {
@@ -82,6 +109,21 @@ export default function Booking() {
       })
       .catch(err => console.error("Service betöltési hiba:", err));
   }, []);
+
+  useEffect(() => {
+    fetch("http://localhost/vizsga/api/engine_sizes.php", {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          setEngineSizes(data.engine_sizes);
+        }
+      })
+      .catch(err => console.error("Engine size betöltési hiba:", err));
+  }, []);
+
+
 
   const [carYear, setCarYear] = useState("");
   const [fuelType, setFuelType] = useState("");
@@ -179,13 +221,15 @@ export default function Booking() {
 
   const timeSlots = generateTimeSlots();
 
-  const selectedDate =
-    selectedMonth && selectedDay
-      ? `${selectedYear}-${selectedMonth}-${selectedDay}`
-      : "";
-
   // ===== FOGLALÁS =====
   const handleBooking = async () => {
+
+    console.log("BOOKING CLICK");
+
+    if (!selectedDate || !selectedTime) {
+      alert("Válassz dátumot és időpontot!");
+      return;
+    }
 
     if (!selectedService) {
       alert("Válassz szolgáltatást!");
@@ -198,6 +242,7 @@ export default function Booking() {
     }
 
     try {
+
       const res = await fetch("http://localhost/vizsga/api/bookings_create.php", {
         method: "POST",
         credentials: "include",
@@ -212,11 +257,13 @@ export default function Booking() {
           car_model: carModel,
           car_year: carYear,
           fuel_type: fuelType,
-          engine_size: fuelType === "elektromos" ? null : engineSize
+          engine_size: engineSize
         })
       });
 
       const data = await res.json();
+
+      console.log("BOOKING RESPONSE:", data);
 
       if (!data.success) {
         setPopup({
@@ -227,15 +274,33 @@ export default function Booking() {
         return;
       }
 
+      // ===== SIKERES FOGLALÁS =====
+
       setPopup({
         show: true,
         success: true,
         message: "Sikeres foglalás 🎉"
       });
 
-      setShowSuccess(true);
+      // mezők reset
+      setSelectedService("");
+      setSelectedMonth("");
+      setSelectedDay("");
+      setSelectedTime("");
 
-    } catch {
+      setCarBrand("");
+      setCarModel("");
+      setCarYear("");
+      setFuelType("");
+      setEngineSize("");
+
+      // időpont lista frissítése
+      setBookedTimes(prev => [...prev, selectedTime]);
+
+    } catch (err) {
+
+      console.error(err);
+
       setPopup({
         show: true,
         success: false,
@@ -322,18 +387,28 @@ export default function Booking() {
       {selectedDate && (
         <section className="bg-gray-900 p-6 rounded-lg border border-gray-800">
           <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
-            {timeSlots.map((t) => (
-              <button
-                key={t}
-                onClick={() => setSelectedTime(t)}
-                className={`p-2 rounded text-sm ${selectedTime === t
-                  ? "bg-red-600"
-                  : "bg-black hover:bg-gray-800"
-                  }`}
-              >
-                {t}
-              </button>
-            ))}
+            {timeSlots.map((t) => {
+
+              const booked = bookedTimes.includes(t);
+
+              return (
+                <button
+                  key={t}
+                  disabled={booked}
+                  onClick={() => setSelectedTime(t)}
+                  className={`p-2 rounded text-sm
+        ${booked
+                      ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                      : selectedTime === t
+                        ? "bg-red-600"
+                        : "bg-black hover:bg-gray-800"
+                    }
+      `}
+                >
+                  {t}
+                </button>
+              );
+            })}
           </div>
         </section>
       )}
@@ -387,7 +462,7 @@ export default function Booking() {
           </option>
 
           {models.map((model) => (
-            <option key={model.id} value={model.model_name}>
+            <option key={model.id} value={model.id}>
               {model.model_name}
             </option>
           ))}
@@ -430,14 +505,11 @@ export default function Booking() {
               : "Köbcenti (liter)"}
           </option>
 
-          {Array.from({ length: 53 }, (_, i) => {
-            const value = (0.8 + i * 0.1).toFixed(1);
-            return (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            );
-          })}
+          {engineSizes.map((engine) => (
+            <option key={engine.id} value={engine.id}>
+              {engine.engine_size}
+            </option>
+          ))}
         </select>
 
       </section>
@@ -449,6 +521,23 @@ export default function Booking() {
         >
           Időpont lefoglalása
         </button>
+      )}
+      {popup.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
+          <div
+            className={`p-8 rounded text-center max-w-sm w-full ${popup.success ? "bg-green-700" : "bg-red-700"
+              }`}
+          >
+            <p className="text-white text-lg mb-6">{popup.message}</p>
+
+            <button
+              onClick={() => setPopup({ ...popup, show: false })}
+              className="bg-black px-6 py-2 rounded text-white"
+            >
+              OK
+            </button>
+          </div>
+        </div>
       )}
 
     </div>
