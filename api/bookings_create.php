@@ -113,6 +113,32 @@ try {
         $vehicle_id = $pdo->lastInsertId();
     }
 
+// =====================================
+// IDŐPONT FOGLALTSÁG ELLENŐRZÉSE
+// =====================================
+
+    $stmt = $pdo->prepare("
+        SELECT COUNT(*) 
+        FROM work_process
+        WHERE appointment_date = ?
+        AND appointment_time = ?
+    ");
+
+    $stmt->execute([
+        $appointment_date,
+        $appointment_time
+    ]);
+
+    if ($stmt->fetchColumn() > 0) {
+
+        echo json_encode([
+            "success" => false,
+            "message" => "Ez az időpont már foglalt"
+        ]);
+
+        exit;
+    }
+
     // =====================================
     // 3️⃣ work_process létrehozása
     // =====================================

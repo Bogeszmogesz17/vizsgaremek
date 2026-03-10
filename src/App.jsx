@@ -19,6 +19,7 @@ import Contact from "./pages/Contact";
 import Register from "./pages/Register";
 import Login from "./pages/Login";
 import Footer from "./pages/Footer";
+import ForgotPassword from "./pages/ForgotPassword";
 
 export default function App() {
   return (
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="/regisztracio" element={<Register />} />
             <Route path="/login" element={<Login />} />
             <Route path="/fiok" element={<Account />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
 
             {/* ADMIN (Itt rejtve lesz a footer) */}
             <Route path="/admin-setup" element={<AdminSetup />} />

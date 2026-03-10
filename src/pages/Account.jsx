@@ -8,7 +8,8 @@ export default function Account() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // profil szerkesztés
+  const [bookings, setBookings] = useState([]);
+
   const [showEditForm, setShowEditForm] = useState(false);
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
@@ -16,7 +17,6 @@ export default function Account() {
   const [editAddress, setEditAddress] = useState("");
   const [editSettlementId, setEditSettlementId] = useState("");
 
-  // jelszó módosítás
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -58,6 +58,51 @@ export default function Account() {
 
   }, [navigate]);
 
+  // =====================
+  // FOGLALÁSOK BETÖLTÉSE
+  // =====================
+  useEffect(() => {
+
+    fetch("http://localhost/vizsga/api/my_bookings.php", {
+      credentials: "include"
+    })
+      .then(res => res.json())
+      .then(data => {
+
+        if (data.success) {
+          setBookings(data.bookings);
+        }
+
+      });
+
+  }, []);
+
+  // =====================
+  // FOGLALÁS LEMONDÁSA
+  // =====================
+  const cancelBooking = async (id) => {
+
+    const res = await fetch("http://localhost/vizsga/api/cancel_booking.php", {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        booking_id: id
+      })
+    });
+
+    const data = await res.json();
+
+    if (!data.success) {
+      alert(data.message);
+      return;
+    }
+
+    setBookings(bookings.filter(b => b.id !== id));
+
+  };
 
   // =====================
   // PROFIL FRISSÍTÉS
@@ -113,7 +158,6 @@ export default function Account() {
     }
 
   };
-
 
   // =====================
   // JELSZÓ MÓDOSÍTÁS
@@ -175,10 +219,6 @@ export default function Account() {
 
   };
 
-
-  // =====================
-  // LOADING
-  // =====================
   if (loading) {
     return (
       <p className="text-center text-gray-400 mt-10">
@@ -187,10 +227,6 @@ export default function Account() {
     );
   }
 
-
-  // =====================
-  // UI
-  // =====================
   return (
 
     <div className="max-w-lg mx-auto bg-gray-900 p-8 rounded text-white">
@@ -199,6 +235,7 @@ export default function Account() {
         Fiókom
       </h1>
 
+      {/* PROFIL ADATOK */}
 
       <div className="space-y-2">
 
@@ -216,9 +253,46 @@ export default function Account() {
 
       </div>
 
-
       <hr className="my-6 border-gray-700" />
 
+      {/* FOGLALÁSOK */}
+
+      <h2 className="text-xl font-semibold mb-4">Időpont foglalásaim</h2>
+
+      <button
+        onClick={() => navigate("/idopont")}
+        className="mb-4 w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
+      >
+        Új időpont foglalása
+      </button>
+
+      {bookings.length === 0 && (
+        <p className="text-gray-400">Nincs még foglalásod.</p>
+      )}
+
+      {bookings.map(b => (
+
+        <div key={b.id} className="bg-gray-800 p-4 rounded mb-3 flex justify-between items-center">
+
+          <div>
+            <p className="font-semibold">{b.service_name}</p>
+            <p className="text-sm text-gray-400">
+              {b.appointment_date} {b.appointment_time}
+            </p>
+          </div>
+
+          <button
+            onClick={() => cancelBooking(b.id)}
+            className="bg-red-700 hover:bg-red-800 px-3 py-1 rounded"
+          >
+            Lemondás
+          </button>
+
+        </div>
+
+      ))}
+
+      <hr className="my-6 border-gray-700" />
 
       {/* PROFIL MÓDOSÍTÁS */}
 
@@ -228,7 +302,6 @@ export default function Account() {
       >
         {showEditForm ? "Profil módosítás elrejtése" : "Profil adatok módosítása"}
       </button>
-
 
       {showEditForm && (
 
@@ -273,9 +346,7 @@ export default function Account() {
 
       )}
 
-
       <hr className="my-6 border-gray-700" />
-
 
       {/* JELSZÓ */}
 
@@ -285,7 +356,6 @@ export default function Account() {
       >
         {showPasswordForm ? "Jelszó módosítás elrejtése" : "Jelszó módosítása"}
       </button>
-
 
       {showPasswordForm && (
 
@@ -326,23 +396,22 @@ export default function Account() {
 
       )}
 
-
       {msg && (
-
         <div className={`mt-4 p-3 rounded text-center ${msgType === "success" ? "bg-green-600" : "bg-red-600"}`}>
           {msg}
         </div>
-
       )}
 
-
       <button
-        onClick={() => {
-          fetch("http://localhost/vizsga/api/logout.php", {
+        onClick={async () => {
+
+          await fetch("http://localhost/vizsga/api/logout.php", {
             credentials: "include"
-          }).then(() => {
-            window.location.href = "/";
           });
+
+          navigate("/", { state: { message: "logout" } });
+
+
         }}
         className="mt-8 w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
       >
@@ -352,5 +421,4 @@ export default function Account() {
     </div>
 
   );
-
 }

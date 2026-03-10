@@ -389,25 +389,30 @@ export default function Booking() {
           <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
             {timeSlots.map((t) => {
 
-              const booked = bookedTimes.includes(t);
+              const booked = bookedTimes.some(time => time.startsWith(t));
 
               return (
                 <button
                   key={t}
                   disabled={booked}
-                  onClick={() => setSelectedTime(t)}
-                  className={`p-2 rounded text-sm
+                  onClick={() => {
+                    if (!booked) {
+                      setSelectedTime(t);
+                    }
+                  }}
+                  className={`p-2 rounded text-sm transition
         ${booked
-                      ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                      ? "bg-gray-700 text-gray-400 cursor-not-allowed pointer-events-none"
                       : selectedTime === t
                         ? "bg-red-600"
                         : "bg-black hover:bg-gray-800"
                     }
       `}
                 >
-                  {t}
+                  {t} {booked && "❌"}
                 </button>
               );
+
             })}
           </div>
         </section>
