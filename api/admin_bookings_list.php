@@ -14,6 +14,7 @@ try {
             s.name as service,
             u.name AS user_name,
             u.email AS user_email,
+            u.phone_number,
             m.model_name AS car_model,
             b.brand_name AS car_brand,
             ft.fuel_name as fuel_type

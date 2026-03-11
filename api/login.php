@@ -10,11 +10,10 @@ session_set_cookie_params([
     'domain' => 'localhost',
     'secure' => false,
     'httponly' => true,
-    'samesite' => 'None'
+    'samesite' => 'Lax'
 ]);
-session_start();
 
-$data = json_decode(file_get_contents("php://input"), true);
+
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (empty($data["email"]) || empty($data["password"])) {

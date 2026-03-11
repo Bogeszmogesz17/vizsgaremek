@@ -1,33 +1,43 @@
 <?php
-require "./core/settings.php";
 
-isAdmin();
+require_once "core/config.php";
+session_start();
 
-require_once "db.php";
+header("Content-Type: application/json");
 
-try {
-    $stmt = $pdo->query("
-        SELECT 
-            wp.id,
-            wp.appointment_date,
-            wp.appointment_time,
-            wp.status,
-            wp.issued_at,
-            u.name AS user_name,
-            u.email AS user_email
-        FROM work_process wp
-        JOIN users u ON wp.user_id = u.id
-        WHERE wp.status = 1
-        ORDER BY wp.issued_at ASC
-    ");
+$sql = "
+SELECT 
+wp.id,
+wp.appointment_date,
+wp.appointment_time,
+wp.description,
 
-    echo json_encode([
-        "success" => true,
-        "works" => $stmt->fetchAll(PDO::FETCH_ASSOC)
-    ]);
-} catch (PDOException $e) {
-    echo json_encode([
-        "success" => false,
-        "message" => $e->getMessage()
-    ]);
+u.name AS user_name,
+u.email AS user_email,
+u.phone_number,
+
+b.brand_name AS car_brand,
+m.model_name AS car_model
+
+FROM work_process wp
+
+JOIN vehicles v ON wp.vehicle_id = v.id
+JOIN users u ON v.user_id = u.id
+JOIN model m ON v.model_id = m.id
+JOIN brand b ON m.brand_id = b.id
+
+ORDER BY wp.appointment_date ASC
+";
+
+$result = $conn->query($sql);
+
+$works = [];
+
+while ($row = $result->fetch_assoc()) {
+    $works[] = $row;
 }
+
+echo json_encode([
+    "success" => true,
+    "works" => $works
+]);
