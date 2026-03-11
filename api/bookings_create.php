@@ -1,5 +1,16 @@
 <?php
 
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
+
+require 'phpmailer/src/Exception.php';
+require 'phpmailer/src/PHPMailer.php';
+require 'phpmailer/src/SMTP.php';
+
 // ===== CORS =====
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header("Access-Control-Allow-Origin: http://localhost:5173");
@@ -13,8 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
-
-// ========================================
 
 require "./core/settings.php";
 require_once "db.php";
@@ -63,13 +72,24 @@ $car_year         = (int)$data["car_year"];
 $fuel_type        = (int)$data["fuel_type"];
 $engine_size      = $data["engine_size"] ?? null;
 
+// ===== múltbeli időpont tiltása =====
+
+$currentDateTime = new DateTime();
+$appointmentDateTime = new DateTime($appointment_date . ' ' . $appointment_time);
+
+if ($appointmentDateTime < $currentDateTime) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Múltbeli időpontra nem lehet foglalni"
+    ]);
+    exit;
+}
+
 try {
 
     $pdo->beginTransaction();
 
-    // =====================================
-    // 1️⃣ Létező jármű keresése
-    // =====================================
+    // ===== Jármű keresése =====
     $stmt = $pdo->prepare("
         SELECT id 
         FROM vehicles 
@@ -91,32 +111,27 @@ try {
 
     $vehicle_id = $stmt->fetchColumn();
 
-    // =====================================
-    // 2️⃣ Ha nincs → jármű létrehozása
-    // =====================================
+    // ===== Ha nincs jármű → létrehozás =====
     if (!$vehicle_id) {
 
-        $stmt = $pdo->prepare("
-            INSERT INTO vehicles
-            (user_id, model_id, year, fuel_type_id, engine_size_id, active)
-            VALUES (?, ?, ?, ?, ?, 1)
-        ");
+    $stmt = $pdo->prepare("
+        INSERT INTO vehicles
+        (user_id, model_id, year, fuel_type_id, engine_size_id, active)
+        VALUES (?, ?, ?, ?, ?, 1)
+    ");
 
-        $stmt->execute([
-            $user_id,
-            $car_model,
-            $car_year,
-            $fuel_type,
-            $engine_size
-        ]);
+    $stmt->execute([
+        $user_id,
+        $car_model,
+        $car_year,
+        $fuel_type,
+        $engine_size
+    ]);
 
-        $vehicle_id = $pdo->lastInsertId();
-    }
+    $vehicle_id = $pdo->lastInsertId();
+}
 
-// =====================================
-// IDŐPONT FOGLALTSÁG ELLENŐRZÉSE
-// =====================================
-
+    // ===== Időpont foglaltság =====
     $stmt = $pdo->prepare("
         SELECT COUNT(*) 
         FROM work_process
@@ -129,19 +144,20 @@ try {
         $appointment_time
     ]);
 
-    if ($stmt->fetchColumn() > 0) {
+    $count = $stmt->fetchColumn();
+    if ($count > 0) {
 
-        echo json_encode([
-            "success" => false,
-            "message" => "Ez az időpont már foglalt"
-        ]);
+    $pdo->rollBack();
 
-        exit;
-    }
+    echo json_encode([
+        "success" => false,
+        "message" => "Ez az időpont már foglalt"
+    ]);
 
-    // =====================================
-    // 3️⃣ work_process létrehozása
-    // =====================================
+    exit;
+}
+
+    // ===== work_process =====
     $stmt = $pdo->prepare("
         INSERT INTO work_process
         (vehicle_id, appointment_date, appointment_time, status, issued_at, work_price, material_price, method_id, invoices_id)
@@ -156,9 +172,7 @@ try {
 
     $work_process_id = $pdo->lastInsertId();
 
-    // =====================================
-    // 4️⃣ szolgáltatás hozzárendelése
-    // =====================================
+    // ===== szolgáltatás =====
     $stmt = $pdo->prepare("
         INSERT INTO work_process_services
         (work_process_id, service_id)
@@ -170,7 +184,72 @@ try {
         $service_id
     ]);
 
+    // ===== autó adatok emailhez =====
+    $stmt = $pdo->prepare("
+SELECT b.brand_name AS brand, m.model_name AS model
+FROM model m
+LEFT JOIN brand b ON m.brand_id = b.id
+WHERE m.id = ?
+LIMIT 1
+");
+
+    $stmt->execute([$car_model]);
+    $car = $stmt->fetch(PDO::FETCH_ASSOC);
+
+    if ($car) {
+        $car_brand = $car['brand'];
+        $car_model_name = $car['model'];
+    } else {
+        $car_brand = '';
+        $car_model_name = '';
+    }
     $pdo->commit();
+
+    // ===== EMAIL =====
+
+    $mail = new PHPMailer(true);
+
+    try {
+
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->Username = 'bogibodis6@gmail.com';
+        $mail->Password = 'kqzp piki taum nymc';
+        $mail->SMTPSecure = 'tls';
+        $mail->Port = 587;
+
+        $mail->setFrom('bogibodis6@gmail.com', 'Autoszerviz');
+        $mail->addAddress($_SESSION["email"], $_SESSION["name"]);
+
+        $mail->isHTML(true);
+        $mail->Subject = 'Sikeres foglalás';
+
+        $mail->Body = '
+        <div style="font-family:Arial;padding:20px">
+        <h2>Sikeres foglalás</h2>
+
+        <p>Szia <b>'.$_SESSION["name"].'</b>!</p>
+
+        <p>A foglalásod sikeresen rögzítésre került.</p>
+
+        <p>
+        <b>Dátum:</b> '.$appointment_date.'<br>
+        <b>Időpont:</b> '.$appointment_time.'<br>
+        <b>Autó:</b> '.$car_brand.' '.$car_model_name.'
+        </p>
+
+        <p>
+        Foglalását legkésőbb <b>2 nappal az időpont előtt</b> tudja lemondani.
+        </p>
+
+        <p>Dupla Dugattyú Műhely</p>
+        </div>
+        ';
+
+        $mail->send();
+
+    } catch (Exception $e) {}
 
     echo json_encode([
         "success" => true,

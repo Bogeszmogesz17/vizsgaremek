@@ -1,6 +1,9 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 export default function ForgotPassword() {
+
+    const navigate = useNavigate();
 
     const [email, setEmail] = useState("");
     const [msg, setMsg] = useState("");
@@ -20,7 +23,13 @@ export default function ForgotPassword() {
         console.log(text);
 
         const data = JSON.parse(text);
+
         setMsg(data.message);
+
+        // ✅ ha sikeres, átirányítás reset oldalra
+        if (data.success && data.token) {
+            navigate(`/reset-password?token=${data.token}`);
+        }
     };
 
     return (

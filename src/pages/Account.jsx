@@ -402,22 +402,6 @@ export default function Account() {
         </div>
       )}
 
-      <button
-        onClick={async () => {
-
-          await fetch("http://localhost/vizsga/api/logout.php", {
-            credentials: "include"
-          });
-
-          navigate("/", { state: { message: "logout" } });
-
-
-        }}
-        className="mt-8 w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
-      >
-        Kijelentkezés
-      </button>
-
     </div>
 
   );

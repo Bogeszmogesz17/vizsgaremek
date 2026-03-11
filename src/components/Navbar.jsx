@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
+
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [auth, setAuth] = useState(null);
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const navigate = useNavigate();
 
   // SESSION ELLENŐRZÉS
@@ -18,12 +20,15 @@ export default function Navbar() {
 
   // LOGOUT
   const logout = async () => {
+
     await fetch("http://localhost/vizsga/api/logout.php", {
       credentials: "include",
     });
 
     setAuth({ loggedIn: false });
-    window.location.href = "/"; // teljes reload biztos frissítéshez
+
+    setShowLogoutPopup(true);
+
   };
 
   return (
@@ -128,14 +133,38 @@ export default function Navbar() {
                 )}
 
                 <button
+                  type="button"
                   onClick={logout}
-                  className="block w-full text-left px-6 py-3 text-red-600"
+                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white"
                 >
                   Kijelentkezés
                 </button>
               </>
             )}
           </div>
+        </div>
+      )}
+      {showLogoutPopup && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999]">
+
+          <div className="bg-green-600 p-8 rounded text-center max-w-sm w-full">
+
+            <p className="text-white text-lg mb-6 font-semibold">
+              Sikeres kijelentkezés
+            </p>
+
+            <button
+              onClick={() => {
+                setShowLogoutPopup(false);
+                navigate("/");
+              }}
+              className="bg-black px-6 py-2 rounded text-white"
+            >
+              OK
+            </button>
+
+          </div>
+
         </div>
       )}
     </nav>
