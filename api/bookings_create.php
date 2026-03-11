@@ -7,6 +7,7 @@ error_reporting(E_ALL);
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
+require "api/core/config.php";
 require 'phpmailer/src/Exception.php';
 require 'phpmailer/src/PHPMailer.php';
 require 'phpmailer/src/SMTP.php';
@@ -214,12 +215,12 @@ LIMIT 1
         $mail->isSMTP();
         $mail->Host = 'smtp.gmail.com';
         $mail->SMTPAuth = true;
-        $mail->Username = 'bogibodis6@gmail.com';
-        $mail->Password = 'kqzp piki taum nymc';
+        $mail->Username = MAIL_USER;
+        $mail->Password = MAIL_PASS;
         $mail->SMTPSecure = 'tls';
         $mail->Port = 587;
 
-        $mail->setFrom('bogibodis6@gmail.com', 'Autoszerviz');
+        $mail->setFrom('bogibodis6@gmail.com', 'Dupla Dugattyú Műhely');
         $mail->addAddress($_SESSION["email"], $_SESSION["name"]);
 
         $mail->isHTML(true);
