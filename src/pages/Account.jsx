@@ -15,7 +15,8 @@ export default function Account() {
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
   const [editAddress, setEditAddress] = useState("");
-  const [editSettlementId, setEditSettlementId] = useState("");
+
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
 
   const [showPasswordForm, setShowPasswordForm] = useState(false);
   const [oldPassword, setOldPassword] = useState("");
@@ -25,9 +26,6 @@ export default function Account() {
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("");
 
-  // =====================
-  // USER BETÖLTÉS
-  // =====================
   useEffect(() => {
 
     fetch("http://localhost/vizsga/api/me.php", {
@@ -47,20 +45,14 @@ export default function Account() {
         setEditEmail(data.user.email || "");
         setEditPhone(data.user.phone_number || "");
         setEditAddress(data.user.address || "");
-        setEditSettlementId(data.user.settlement_id || "");
 
         setLoading(false);
 
       })
-      .catch(() => {
-        navigate("/login");
-      });
+      .catch(() => navigate("/login"));
 
   }, [navigate]);
 
-  // =====================
-  // FOGLALÁSOK BETÖLTÉSE
-  // =====================
   useEffect(() => {
 
     fetch("http://localhost/vizsga/api/my_bookings.php", {
@@ -68,18 +60,11 @@ export default function Account() {
     })
       .then(res => res.json())
       .then(data => {
-
-        if (data.success) {
-          setBookings(data.bookings);
-        }
-
+        if (data.success) setBookings(data.bookings);
       });
 
   }, []);
 
-  // =====================
-  // FOGLALÁS LEMONDÁSA
-  // =====================
   const cancelBooking = async (id) => {
 
     const res = await fetch("http://localhost/vizsga/api/cancel_booking.php", {
@@ -88,28 +73,24 @@ export default function Account() {
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        booking_id: id
-      })
+      body: JSON.stringify({ booking_id: id })
     });
 
     const data = await res.json();
 
     if (!data.success) {
-      alert(data.message);
+      setMsg(data.message);
+      setMsgType("error");
       return;
     }
 
     setBookings(bookings.filter(b => b.id !== id));
 
+    setMsg("Sikeres lemondás, emailben tájékoztatjuk a szervizt!");
+    setMsgType("success");
   };
 
-  // =====================
-  // PROFIL FRISSÍTÉS
-  // =====================
   const handleProfileUpdate = async () => {
-
-    setMsg("");
 
     try {
 
@@ -117,16 +98,13 @@ export default function Account() {
         "http://localhost/vizsga/api/update_profile.php",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
             name: editName,
             email: editEmail,
             phone_number: editPhone,
-            address: editAddress,
-            settlement_id: editSettlementId
+            address: editAddress
           })
         }
       );
@@ -134,13 +112,10 @@ export default function Account() {
       const data = await res.json();
 
       if (!data.success) {
-        setMsg(data.message || "Hiba történt");
+        setMsg(data.message);
         setMsgType("error");
         return;
       }
-
-      setMsg("Profil frissítve");
-      setMsgType("success");
 
       setUser({
         ...user,
@@ -150,21 +125,17 @@ export default function Account() {
         address: editAddress
       });
 
-    } catch {
+      setMsg("Profil frissítve");
+      setMsgType("success");
 
+    } catch {
       setMsg("Szerverhiba");
       setMsgType("error");
-
     }
 
   };
 
-  // =====================
-  // JELSZÓ MÓDOSÍTÁS
-  // =====================
   const handlePasswordChange = async () => {
-
-    setMsg("");
 
     if (!oldPassword || !newPassword || !newPassword2) {
       setMsg("Minden mezőt ki kell tölteni");
@@ -184,9 +155,7 @@ export default function Account() {
         "http://localhost/vizsga/api/change_password.php",
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
+          headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
             old_password: oldPassword,
@@ -211,214 +180,230 @@ export default function Account() {
       setNewPassword2("");
 
     } catch {
-
       setMsg("Szerverhiba");
       setMsgType("error");
-
     }
 
   };
 
   if (loading) {
-    return (
-      <p className="text-center text-gray-400 mt-10">
-        Betöltés...
-      </p>
-    );
+    return <p className="text-center text-gray-400 mt-10">Betöltés...</p>;
   }
 
   return (
 
-    <div className="max-w-lg mx-auto bg-gray-900 p-8 rounded text-white">
+<div className="max-w-6xl mx-auto px-4 text-white">
 
-      <h1 className="text-3xl font-bold text-red-600 mb-6 text-center">
-        Fiókom
-      </h1>
+<h1 className="text-3xl font-bold text-red-600 mb-8 text-center">
+Fiókom
+</h1>
 
-      {/* PROFIL ADATOK */}
+<div className="grid md:grid-cols-2 gap-8 items-start">
 
-      <div className="space-y-2">
+<div className="bg-gray-900 p-6 rounded-xl shadow">
 
-        <p><strong>Név:</strong> {user.name}</p>
-        <p><strong>Email:</strong> {user.email}</p>
-        <p><strong>Telefonszám:</strong> {user.phone_number}</p>
-        <p><strong>Lakcím:</strong> {user.address}</p>
-        <p><strong>Irányítószám:</strong> {user.post_code}</p>
-        <p><strong>Település:</strong> {user.settlement_name}</p>
+<h2 className="text-xl font-semibold mb-4 text-red-500">
+Profil adatok
+</h2>
 
-        <p>
-          <strong>Regisztráció:</strong>{" "}
-          {new Date(user.created_at).toLocaleDateString()}
-        </p>
+<p><strong>Név:</strong> {user.name}</p>
+<p><strong>Email:</strong> {user.email}</p>
+<p><strong>Telefon:</strong> {user.phone_number}</p>
+<p><strong>Lakcím:</strong> {user.address}</p>
 
-      </div>
+<button
+onClick={() => setShowEditForm(!showEditForm)}
+className="mt-6 w-full bg-red-600 hover:bg-red-700 p-3 rounded"
+>
+Profil módosítása
+</button>
 
-      <hr className="my-6 border-gray-700" />
+</div>
 
-      {/* FOGLALÁSOK */}
+<div className="bg-gray-900 p-6 rounded-xl shadow">
 
-      <h2 className="text-xl font-semibold mb-4">Időpont foglalásaim</h2>
+<h2 className="text-xl font-semibold mb-4 text-red-500">
+Időpont foglalásaim
+</h2>
 
-      <button
-        onClick={() => navigate("/idopont")}
-        className="mb-4 w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
-      >
-        Új időpont foglalása
-      </button>
+<button
+onClick={() => navigate("/idopont")}
+className="mb-4 w-full bg-red-600 hover:bg-red-700 p-3 rounded"
+>
+Új időpont foglalása
+</button>
 
-      {bookings.length === 0 && (
-        <p className="text-gray-400">Nincs még foglalásod.</p>
-      )}
+{bookings.length === 0 && (
+<p className="text-gray-400">Nincs még foglalásod.</p>
+)}
 
-      {bookings.map(b => (
+{bookings.map(b => (
 
-        <div key={b.id} className="bg-gray-800 p-4 rounded mb-3 flex justify-between items-center">
+<div key={b.id} className="bg-gray-800 p-4 rounded-lg mb-3 flex justify-between">
 
-          <div>
-            <p className="font-semibold">{b.service_name}</p>
-            <p className="text-sm text-gray-400">
-              {b.appointment_date} {b.appointment_time}
-            </p>
-          </div>
+<div>
+<p className="font-semibold">{b.service_name}</p>
+<p className="text-sm text-gray-400">
+{b.appointment_date} {b.appointment_time}
+</p>
+</div>
 
-          <button
-            onClick={() => cancelBooking(b.id)}
-            className="bg-red-700 hover:bg-red-800 px-3 py-1 rounded"
-          >
-            Lemondás
-          </button>
+<button
+onClick={() => setConfirmCancelId(b.id)}
+className="bg-red-700 hover:bg-red-800 px-4 py-2 rounded"
+>
+Lemondás
+</button>
 
-        </div>
+</div>
 
-      ))}
+))}
 
-      <hr className="my-6 border-gray-700" />
+</div>
 
-      {/* PROFIL MÓDOSÍTÁS */}
+</div>
 
-      <button
-        onClick={() => setShowEditForm(!showEditForm)}
-        className="w-full bg-gray-800 hover:bg-gray-700 p-3 rounded font-semibold"
-      >
-        {showEditForm ? "Profil módosítás elrejtése" : "Profil adatok módosítása"}
-      </button>
+{showEditForm && (
 
-      {showEditForm && (
+<div className="bg-gray-900 p-6 rounded-xl shadow mt-8 max-w-xl mx-auto">
 
-        <div className="mt-6">
+<h2 className="text-xl font-semibold mb-4 text-red-500">
+Profil módosítása
+</h2>
 
-          <input
-            value={editName}
-            onChange={(e) => setEditName(e.target.value)}
-            className="w-full mb-3 p-3 bg-black rounded"
-            placeholder="Név"
-          />
+<input
+value={editName}
+onChange={(e) => setEditName(e.target.value)}
+className="w-full mb-3 p-3 bg-black rounded"
+placeholder="Név"
+/>
 
-          <input
-            value={editEmail}
-            onChange={(e) => setEditEmail(e.target.value)}
-            className="w-full mb-3 p-3 bg-black rounded"
-            placeholder="Email"
-          />
+<input
+value={editEmail}
+onChange={(e) => setEditEmail(e.target.value)}
+className="w-full mb-3 p-3 bg-black rounded"
+placeholder="Email"
+/>
 
-          <input
-            value={editPhone}
-            onChange={(e) => setEditPhone(e.target.value)}
-            className="w-full mb-3 p-3 bg-black rounded"
-            placeholder="Telefonszám"
-          />
+<input
+value={editPhone}
+onChange={(e) => setEditPhone(e.target.value)}
+className="w-full mb-3 p-3 bg-black rounded"
+placeholder="Telefonszám"
+/>
 
-          <input
-            value={editAddress}
-            onChange={(e) => setEditAddress(e.target.value)}
-            className="w-full mb-4 p-3 bg-black rounded"
-            placeholder="Lakcím"
-          />
+<input
+value={editAddress}
+onChange={(e) => setEditAddress(e.target.value)}
+className="w-full mb-4 p-3 bg-black rounded"
+placeholder="Lakcím"
+/>
 
-          <button
-            onClick={handleProfileUpdate}
-            className="w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
-          >
-            Adatok mentése
-          </button>
+<button
+onClick={handleProfileUpdate}
+className="w-full bg-red-600 hover:bg-red-700 p-3 rounded"
+>
+Adatok mentése
+</button>
 
-        </div>
+</div>
 
-      )}
+)}
 
-      <hr className="my-6 border-gray-700" />
+<div className="bg-gray-900 p-6 rounded-xl shadow mt-8 max-w-xl mx-auto">
 
-      {/* JELSZÓ */}
+<button
+onClick={() => setShowPasswordForm(!showPasswordForm)}
+className="w-full bg-gray-800 hover:bg-gray-700 p-3 rounded"
+>
+Jelszó módosítása
+</button>
 
-      <button
-        onClick={() => setShowPasswordForm(!showPasswordForm)}
-        className="w-full bg-gray-800 hover:bg-gray-700 p-3 rounded font-semibold"
-      >
-        {showPasswordForm ? "Jelszó módosítás elrejtése" : "Jelszó módosítása"}
-      </button>
+{showPasswordForm && (
 
-      {showPasswordForm && (
+<div className="mt-6">
 
-        <div className="mt-6">
+<input
+type="password"
+placeholder="Jelenlegi jelszó"
+value={oldPassword}
+onChange={(e) => setOldPassword(e.target.value)}
+className="w-full mb-3 p-3 bg-black rounded"
+/>
 
-          <input
-            type="password"
-            placeholder="Jelenlegi jelszó"
-            value={oldPassword}
-            onChange={(e) => setOldPassword(e.target.value)}
-            className="w-full mb-3 p-3 bg-black rounded"
-          />
+<input
+type="password"
+placeholder="Új jelszó"
+value={newPassword}
+onChange={(e) => setNewPassword(e.target.value)}
+className="w-full mb-3 p-3 bg-black rounded"
+/>
 
-          <input
-            type="password"
-            placeholder="Új jelszó"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full mb-3 p-3 bg-black rounded"
-          />
+<input
+type="password"
+placeholder="Új jelszó megerősítése"
+value={newPassword2}
+onChange={(e) => setNewPassword2(e.target.value)}
+className="w-full mb-4 p-3 bg-black rounded"
+/>
 
-          <input
-            type="password"
-            placeholder="Új jelszó megerősítése"
-            value={newPassword2}
-            onChange={(e) => setNewPassword2(e.target.value)}
-            className="w-full mb-4 p-3 bg-black rounded"
-          />
+<button
+onClick={handlePasswordChange}
+className="w-full bg-red-600 hover:bg-red-700 p-3 rounded"
+>
+Jelszó módosítása
+</button>
 
-          <button
-            onClick={handlePasswordChange}
-            className="w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
-          >
-            Jelszó módosítása
-          </button>
+</div>
 
-        </div>
+)}
 
-      )}
+</div>
 
-      {msg && (
-        <div className={`mt-4 p-3 rounded text-center ${msgType === "success" ? "bg-green-600" : "bg-red-600"}`}>
-          {msg}
-        </div>
-      )}
+{msg && (
+<div className={`mt-6 p-4 rounded text-center max-w-xl mx-auto ${msgType === "success" ? "bg-green-600" : "bg-red-600"}`}>
+{msg}
+</div>
+)}
 
-      <button
-        onClick={async () => {
+{confirmCancelId && (
 
-          await fetch("http://localhost/vizsga/api/logout.php", {
-            credentials: "include"
-          });
+<div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60">
 
-          navigate("/", { state: { message: "logout" } });
+<div className="bg-gray-900 p-6 rounded text-center w-80">
 
+<p className="mb-6 text-lg">
+Biztosan le szeretnéd mondani az időpontot?
+</p>
 
-        }}
-        className="mt-8 w-full bg-red-600 hover:bg-red-700 p-3 rounded font-semibold"
-      >
-        Kijelentkezés
-      </button>
+<div className="flex gap-4 justify-center">
 
-    </div>
+<button
+onClick={() => {
+cancelBooking(confirmCancelId);
+setConfirmCancelId(null);
+}}
+className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded"
+>
+Igen
+</button>
 
-  );
-}
+<button
+onClick={() => setConfirmCancelId(null)}
+className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded"
+>
+Mégse
+</button>
+
+</div>
+
+</div>
+
+</div>
+
+)}
+
+</div>
+
+);
+} 
