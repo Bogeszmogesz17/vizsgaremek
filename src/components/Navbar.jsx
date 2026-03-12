@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import logo from "./logo.png";
 
 
 export default function Navbar() {
@@ -37,7 +38,11 @@ export default function Navbar() {
 
         {/* LOGÓ */}
         <Link to="/" className="flex items-center gap-3">
-          <div className="w-20 h-20 bg-cover bg-[url('./src/components/logo.png')] rounded-sm"></div>
+          <img
+            src={logo}
+            alt="Dupla dugattyú műhely logó"
+            className="w-20 h-20 rounded-sm object-cover"
+          />
           <span className="text-white font-bold text-lg">
             Dupla dugattyú műhely
           </span>

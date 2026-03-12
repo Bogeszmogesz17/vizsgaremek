@@ -1,22 +1,15 @@
 <?php
+
 require "./core/settings.php";
 require_once "db.php";
 
+header("Content-Type: application/json");
 
-
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'domain' => 'localhost',
-    'secure' => false,
-    'httponly' => true,
-    'samesite' => 'Lax'
-]);
-
-
+// JSON adat
 $data = json_decode(file_get_contents("php://input"), true);
 
-if (empty($data["email"]) || empty($data["password"])) {
+// ellenőrzés
+if (!$data || empty($data["email"]) || empty($data["password"])) {
     echo json_encode([
         "success" => false,
         "message" => "Hiányzó adatok"
@@ -27,14 +20,19 @@ if (empty($data["email"]) || empty($data["password"])) {
 $email = trim($data["email"]);
 $password = $data["password"];
 
-if($email != "bogibodis6@gmail.com") {
+if ($email != "bogibodis6@gmail.com") {
+
     $stmt = $pdo->prepare("
-    SELECT id, name, email, password 
-    FROM users 
-    WHERE email = :email 
-    LIMIT 1
+        SELECT id, name, email, password
+        FROM users
+        WHERE email = :email
+        LIMIT 1
     ");
-    $stmt->execute([":email" => $email]);
+
+    $stmt->execute([
+        ":email" => $email
+    ]);
+
     $user = $stmt->fetch();
 
     if (!$user || !password_verify($password, $user["password"])) {
@@ -44,12 +42,12 @@ if($email != "bogibodis6@gmail.com") {
         ]);
         exit;
     }
-
-    // ✅ SESSION
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['email']   = $user['email'];
-    $_SESSION['name']    = $user['name'];
-
+    
+    $_SESSION["user_id"] = $user["id"];
+    $_SESSION["name"] = $user["name"];
+    $_SESSION["email"] = $user["email"];
+    $_SESSION["role"] = "user";
+    
     echo json_encode([
         "success" => true,
         "message" => "Sikeres bejelentkezés",
@@ -59,11 +57,13 @@ if($email != "bogibodis6@gmail.com") {
             "email" => $user["email"]
         ]
     ]);
+
 } else {
+
     echo json_encode([
         "success" => false,
         "email" => $email,
         "message" => "Ez egy admin felhasználó.",
         "user" => []
-    ]);    
+    ]);
 }

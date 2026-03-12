@@ -2,7 +2,6 @@
 require "./core/settings.php";
 require_once "db.php";
 
-session_start();
 header("Content-Type: application/json");
 
 if (!isset($_SESSION['user_id'])) {
@@ -12,18 +11,27 @@ if (!isset($_SESSION['user_id'])) {
 
 $data = json_decode(file_get_contents("php://input"), true);
 
+if (
+    empty($data["name"]) ||
+    empty($data["email"]) ||
+    empty($data["phone_number"]) ||
+    empty($data["address"])
+) {
+    echo json_encode(["success" => false, "message" => "Hiányzó adatok"]);
+    exit;
+}
+
 try {
     $stmt = $pdo->prepare("
         UPDATE users
-        SET name = ?, email = ?, phone = ?, settlement_id = ?, address = ?
+        SET name = ?, email = ?, phone_number = ?, address = ?
         WHERE id = ?
     ");
 
     $stmt->execute([
         $data["name"],
         $data["email"],
-        $data["phone"],
-        $data["settlement_id"],
+        $data["phone_number"],
         $data["address"],
         $_SESSION["user_id"]
     ]);

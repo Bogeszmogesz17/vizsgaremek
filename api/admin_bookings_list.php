@@ -26,6 +26,8 @@ try {
         JOIN model as m ON v.model_id = m.id
         JOIN brand as b ON m.brand_id = b.id
         JOIN fuel_type as ft ON v.fuel_type_id = ft.id
+        WHERE (wp.status = 0 OR wp.status IS NULL)
+          AND COALESCE(s.is_bookable, 1) = 1
         ORDER BY wp.appointment_date DESC
     ");
     

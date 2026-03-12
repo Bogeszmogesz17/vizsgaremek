@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 export default function Login() {
-  const navigate = useNavigate();
 
   const [role, setRole] = useState("user");
   const [email, setEmail] = useState("");
@@ -43,7 +42,7 @@ export default function Login() {
       if (role === "admin") {
         window.location.href = "/admin";
       } else {
-        window.location.href = "/";
+        window.location.href = "/fiok";
       }
 
     } catch {

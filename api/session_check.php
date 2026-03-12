@@ -1,17 +1,6 @@
 <?php
 require "./core/settings.php";
 
-session_set_cookie_params([
-    'lifetime' => 0,
-    'path' => '/',
-    'domain' => 'localhost',
-    'secure' => false,
-    'httponly' => true,
-    'samesite' => 'None'
-]);
-
-session_start();
-
 if (isset($_SESSION["admin_id"])) {
   echo json_encode([
     "loggedIn" => true,

@@ -8,6 +8,7 @@ export default function AdminDashboard() {
 
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [bookingsPage, setBookingsPage] = useState(1);
 
   const [works, setWorks] = useState([]);
   const [workLoading, setWorkLoading] = useState(false);
@@ -18,6 +19,34 @@ export default function AdminDashboard() {
   const [workDescription, setWorkDescription] = useState("");
   const [workDate, setWorkDate] = useState("");
   const [workTime, setWorkTime] = useState("");
+  const bookingsPerPage = 10;
+  const totalBookingPages = Math.max(1, Math.ceil(bookings.length / bookingsPerPage));
+  const paginatedBookings = bookings.slice(
+    (bookingsPage - 1) * bookingsPerPage,
+    bookingsPage * bookingsPerPage
+  );
+
+
+  // -----------------------------
+  // FOGLALÁSOK BETÖLTÉSE
+  // -----------------------------
+  async function loadBookings() {
+    setLoading(true);
+    try {
+      const res = await fetch("http://localhost/vizsga/api/admin_bookings_list.php", {
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        setBookings(data.bookings);
+        setBookingsPage(1);
+      }
+    } catch (err) {
+      console.error("Booking load error:", err);
+    }
+    setLoading(false);
+  }
 
   // -----------------------------
   // ADMIN CHECK
@@ -44,26 +73,6 @@ export default function AdminDashboard() {
 
     checkAdmin();
   }, [navigate]);
-
-  // -----------------------------
-  // FOGLALÁSOK BETÖLTÉSE
-  // -----------------------------
-  const loadBookings = async () => {
-    setLoading(true);
-    try {
-      const res = await fetch("http://localhost/vizsga/api/admin_bookings_list.php", {
-        credentials: "include",
-      });
-      const data = await res.json();
-
-      if (data.success) {
-        setBookings(data.bookings);
-      }
-    } catch (err) {
-      console.error("Booking load error:", err);
-    }
-    setLoading(false);
-  };
 
   // -----------------------------
   // MUNKÁK BETÖLTÉSE
@@ -199,65 +208,89 @@ export default function AdminDashboard() {
           {loading ? (
             <p className="text-center">Betöltés...</p>
           ) : (
-            <table className="w-full border border-gray-700 text-center">
-              <thead className="bg-gray-800">
-                <tr>
-                  <th className="p-2">Dátum</th>
-                  <th className="p-2">Idő</th>
-                  <th className="p-2">Szolgáltatás</th>
-                  <th className="p-2">Ügyfél</th>
-                  <th className="p-2">Autó</th>
-                  <th className="p-2">Telcsi</th>
-                  <th className="p-2">Művelet</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                {bookings.map(b => (
-                  <tr key={b.id} className="border-t border-gray-700">
-                    <td className="p-2">{b.appointment_date}</td>
-                    <td className="p-2">{b.appointment_time}</td>
-                    <td className="p-2">{b.service}</td>
-
-                    <td className="p-2">
-                      {b.user_name}
-                      <br />
-                      <span className="text-sm text-gray-400">{b.user_email}</span>
-                    </td>
-
-                    <td className="p-2">
-                      {b.car_brand} {b.car_model}
-                    </td>
-
-                    <td className="p-2">
-                      <a href={`tel:${b.phone_number}`} className="text-blue-400 hover:underline">
-                        {b.phone_number}
-                      </a>
-                    </td>
-
-                    <td className="p-2">
-                      {(b.service === "atvizsgalas" || b.service === "Átvizsgálás") && (
-                        <div className="flex justify-center gap-2">
-                          <button
-                            onClick={() => {
-                              setSelectedBooking(b);
-                              setShowWorkForm(true);
-                            }}
-                            className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded"
-                          >
-                            További időpont
-                          </button>
-
-                          <button className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded">
-                            🧾
-                          </button>
-                        </div>
-                      )}
-                    </td>
+            <div className="mb-10">
+              <table className="w-full border border-gray-700 text-center">
+                <thead className="bg-gray-800">
+                  <tr>
+                    <th className="p-2">Dátum</th>
+                    <th className="p-2">Idő</th>
+                    <th className="p-2">Szolgáltatás</th>
+                    <th className="p-2">Ügyfél</th>
+                    <th className="p-2">Autó</th>
+                    <th className="p-2">Telcsi</th>
+                    <th className="p-2">Művelet</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+
+                <tbody>
+                  {paginatedBookings.map(b => (
+                    <tr key={b.id} className="border-t border-gray-700">
+                      <td className="p-2">{b.appointment_date}</td>
+                      <td className="p-2">{b.appointment_time}</td>
+                      <td className="p-2">{b.service}</td>
+
+                      <td className="p-2">
+                        {b.user_name}
+                        <br />
+                        <span className="text-sm text-gray-400">{b.user_email}</span>
+                      </td>
+
+                      <td className="p-2">
+                        {b.car_brand} {b.car_model}
+                      </td>
+
+                      <td className="p-2">
+                        <a href={`tel:${b.phone_number}`} className="text-blue-400 hover:underline">
+                          {b.phone_number}
+                        </a>
+                      </td>
+
+                      <td className="p-2">
+                        {(b.service === "atvizsgalas" || b.service === "Átvizsgálás") && (
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => {
+                                setSelectedBooking(b);
+                                setShowWorkForm(true);
+                              }}
+                              className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded"
+                            >
+                              További időpont
+                            </button>
+
+                            <button className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded">
+                              🧾
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {bookings.length > bookingsPerPage && (
+                <div className="flex items-center justify-center gap-3 mt-4">
+                  <button
+                    onClick={() => setBookingsPage(prev => Math.max(1, prev - 1))}
+                    disabled={bookingsPage === 1}
+                    className="px-3 py-1 rounded bg-gray-700 disabled:opacity-40"
+                  >
+                    Előző
+                  </button>
+                  <span className="text-sm text-gray-300">
+                    {bookingsPage} / {totalBookingPages}
+                  </span>
+                  <button
+                    onClick={() => setBookingsPage(prev => Math.min(totalBookingPages, prev + 1))}
+                    disabled={bookingsPage === totalBookingPages}
+                    className="px-3 py-1 rounded bg-gray-700 disabled:opacity-40"
+                  >
+                    Következő
+                  </button>
+                </div>
+              )}
+            </div>
           )}
         </>
       )}
@@ -276,7 +309,7 @@ export default function AdminDashboard() {
           ) : works.length === 0 ? (
             <p className="text-center">Nincs folyamatban lévő munka.</p>
           ) : (
-            <table className="w-full border border-gray-700 text-center">
+            <table className="w-full border border-gray-700 text-center mb-10">
               <thead className="bg-gray-800">
                 <tr>
                   <th className="p-2">Ügyfél</th>

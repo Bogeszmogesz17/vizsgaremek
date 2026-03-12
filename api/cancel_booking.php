@@ -6,6 +6,7 @@ use PHPMailer\PHPMailer\Exception;
 require 'phpmailer/src/Exception.php';
 require 'phpmailer/src/PHPMailer.php';
 require 'phpmailer/src/SMTP.php';
+require "./core/config.php";
 
 require "./core/settings.php";
 require_once "db.php";
@@ -13,8 +14,6 @@ require_once "db.php";
 header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
-
-session_start();
 
 if (!isset($_SESSION["user_id"])) {
     echo json_encode(["success" => false]);
@@ -91,15 +90,15 @@ try {
     $mail->isSMTP();
     $mail->Host = 'smtp.gmail.com';
     $mail->SMTPAuth = true;
-    $mail->Username = 'bogibodis6@gmail.com';
-    $mail->Password = 'kqzp piki taum nymc'; 
+    $mail->Username = MAIL_USER;
+    $mail->Password = MAIL_PASS;
     $mail->SMTPSecure = 'tls';
     $mail->Port = 587;
 
-    $mail->setFrom('bogibodis6@gmail.com', 'Dupla Dugattyú Műhely');
+    $mail->setFrom(MAIL_USER, 'Dupla Dugattyú Műhely');
 
     // ADMIN EMAIL
-    $mail->addAddress('bogibodis6@gmail.com');
+    $mail->addAddress(MAIL_USER);
 
     $mail->isHTML(true);
     $mail->Subject = 'Foglalás lemondva';

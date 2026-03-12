@@ -1,13 +1,10 @@
 <?php
 
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-error_reporting(E_ALL);
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-require "api/core/config.php";
+require "./core/config.php";
 require 'phpmailer/src/Exception.php';
 require 'phpmailer/src/PHPMailer.php';
 require 'phpmailer/src/SMTP.php';
@@ -28,8 +25,6 @@ header("Content-Type: application/json");
 
 require "./core/settings.php";
 require_once "db.php";
-
-session_start();
 
 if (!isset($_SESSION["user_id"])) {
     echo json_encode([
@@ -258,11 +253,12 @@ LIMIT 1
     ]);
 
 } catch (Exception $e) {
-
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
 
     echo json_encode([
         "success" => false,
-        "message" => $e->getMessage()
+        "message" => "Sikertelen foglalás"
     ]);
 }

@@ -16,42 +16,26 @@ export default function Register() {
   const [settlementId, setSettlementId] = useState("");
   const [phone_number, setPhone] = useState("");
 
-  const [settlements, setSettlements] = useState([]);
-  const [selectedSettlement, setSelectedSettlement] = useState("");
-
   // MODAL STATE
   const [modalOpen, setModalOpen] = useState(false);
   const [modalSuccess, setModalSuccess] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
 
-  // ✅ EZT KELLETT IDE TENNI
+
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/settlements.php")
+    if (postalCode.length !== 4) return;
+
+    fetch(`http://localhost/vizsga/api/settlement_by_postcode.php?post_code=${postalCode}`)
       .then(res => res.json())
       .then(data => {
         if (data.success) {
-          setSettlements(data.settlements);
+          setSettlementName(data.settlement.settlement_name);
+          setSettlementId(data.settlement.id);
+        } else {
+          setSettlementName("");
+          setSettlementId("");
         }
       });
-  }, []);
-
-  useEffect(() => {
-    if (postalCode.length === 4) {
-      fetch(`http://localhost/vizsga/api/settlement_by_postcode.php?post_code=${postalCode}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setSettlementName(data.settlement.settlement_name);
-            setSettlementId(data.settlement.id);
-          } else {
-            setSettlementName("");
-            setSettlementId("");
-          }
-        });
-    } else {
-      setSettlementName("");
-      setSettlementId("");
-    }
   }, [postalCode]);
 
   const handleRegister = async (e) => {
@@ -151,7 +135,14 @@ export default function Register() {
             type="text"
             placeholder="Irányítószám"
             value={postalCode}
-            onChange={(e) => setPostalCode(e.target.value)}
+            onChange={(e) => {
+              const nextPostalCode = e.target.value;
+              setPostalCode(nextPostalCode);
+              if (nextPostalCode.length !== 4) {
+                setSettlementName("");
+                setSettlementId("");
+              }
+            }}
             className="w-full p-3 bg-black rounded"
           />
 

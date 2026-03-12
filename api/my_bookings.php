@@ -7,8 +7,6 @@ header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
-session_start();
-
 if (!isset($_SESSION["user_id"])) {
     echo json_encode([
         "success" => false,
@@ -30,6 +28,7 @@ JOIN work_process_services wps ON wps.work_process_id = wp.id
 JOIN services s ON s.id = wps.service_id
 JOIN vehicles v ON v.id = wp.vehicle_id
 WHERE v.user_id = ?
+  AND (wp.status = 0 OR wp.status IS NULL)
 ORDER BY wp.appointment_date DESC, wp.appointment_time DESC
 ");
 

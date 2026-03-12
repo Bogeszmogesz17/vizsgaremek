@@ -35,7 +35,6 @@ export default function Booking() {
   const [bookedTimes, setBookedTimes] = useState([]);
 
 
-  const [showSuccess, setShowSuccess] = useState(false);
 
   const [carBrand, setCarBrand] = useState("");
   const [carModel, setCarModel] = useState("");
@@ -72,7 +71,6 @@ export default function Booking() {
 
   useEffect(() => {
     if (!carBrand) {
-      setModels([]);
       return;
     }
 
@@ -150,8 +148,8 @@ export default function Booking() {
 
   // ===== ÉVJÁRATOK =====
   const carYears = Array.from(
-    { length: 2026 - 1990 + 1 },
-    (_, i) => 2026 - i
+    { length: currentYear - 1990 + 1 },
+    (_, i) => currentYear - i
   );
 
   // ===== HÓNAPOK =====
@@ -220,6 +218,10 @@ export default function Booking() {
   };
 
   const timeSlots = generateTimeSlots();
+  const selectedFuel = fuelTypes.find(
+    (fuel) => String(fuel.id) === String(fuelType)
+  );
+  const isElectric = selectedFuel?.fuel_name?.toLowerCase() === "elektromos";
 
   // ===== FOGLALÁS =====
   const handleBooking = async () => {
@@ -290,6 +292,7 @@ export default function Booking() {
 
       setCarBrand("");
       setCarModel("");
+      setModels([]);
       setCarYear("");
       setFuelType("");
       setEngineSize("");
@@ -441,7 +444,14 @@ export default function Booking() {
         {/* MÁRKA */}
         <select
           value={carBrand}
-          onChange={(e) => setCarBrand(e.target.value)}
+          onChange={(e) => {
+            const nextBrand = e.target.value;
+            setCarBrand(nextBrand);
+            setCarModel("");
+            if (!nextBrand) {
+              setModels([]);
+            }
+          }}
           className="bg-black p-3 rounded"
         >
           <option value="">Válassz márkát</option>
@@ -501,11 +511,11 @@ export default function Booking() {
         <select
           value={engineSize}
           onChange={(e) => setEngineSize(e.target.value)}
-          disabled={fuelType === "elektromos"}
+          disabled={isElectric}
           className="bg-black p-3 rounded md:col-span-2"
         >
           <option value="">
-            {fuelType === "elektromos"
+            {isElectric
               ? "Elektromos – nincs köbcenti"
               : "Köbcenti (liter)"}
           </option>
