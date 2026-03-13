@@ -13,11 +13,15 @@ export default function AdminProfile() {
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
-      navigate("/admin-login");
+      navigate("/admin-login", { state: { logoutSuccess: true } });
     }
   };
   const [loading, setLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [showPasswordForm, setShowPasswordForm] = useState(false);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [newPassword2, setNewPassword2] = useState("");
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("");
   const [adminProfile, setAdminProfile] = useState({
@@ -92,6 +96,52 @@ export default function AdminProfile() {
       setMsgType("error");
     }
     setProfileSaving(false);
+  };
+
+  const handlePasswordChange = async () => {
+    if (!oldPassword || !newPassword || !newPassword2) {
+      setMsg("Minden mezőt ki kell tölteni");
+      setMsgType("error");
+      return;
+    }
+
+    if (newPassword !== newPassword2) {
+      setMsg("Az új jelszavak nem egyeznek");
+      setMsgType("error");
+      return;
+    }
+
+    try {
+      const res = await fetch(apiUrl("/users/password.php"), {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          old_password: oldPassword,
+          new_password: newPassword,
+          confirm_password: newPassword2,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!data.success) {
+        setMsg(data.message || "Sikertelen jelszómódosítás");
+        setMsgType("error");
+        return;
+      }
+
+      setMsg(data.message || "Jelszó sikeresen módosítva");
+      setMsgType("success");
+      setOldPassword("");
+      setNewPassword("");
+      setNewPassword2("");
+      setShowPasswordForm(false);
+    } catch (err) {
+      console.error("Admin password change error:", err);
+      setMsg("Szerverhiba");
+      setMsgType("error");
+    }
   };
 
   useEffect(() => {
@@ -179,6 +229,52 @@ export default function AdminProfile() {
         >
           {profileSaving ? "Mentés..." : "Adatok mentése"}
         </button>
+      </div>
+
+      <div className="bg-gray-900 p-4 sm:p-6 rounded-xl shadow mt-8">
+        <button
+          type="button"
+          onClick={() => setShowPasswordForm(!showPasswordForm)}
+          className="w-full bg-gray-800 hover:bg-gray-700 p-3 rounded"
+        >
+          Jelszó módosítása
+        </button>
+
+        {showPasswordForm && (
+          <div className="mt-6">
+            <input
+              type="password"
+              placeholder="Régi jelszó"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              className="w-full mb-3 p-3 bg-black rounded"
+            />
+
+            <input
+              type="password"
+              placeholder="Új jelszó"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              className="w-full mb-3 p-3 bg-black rounded"
+            />
+
+            <input
+              type="password"
+              placeholder="Jelszó megerősítés"
+              value={newPassword2}
+              onChange={(e) => setNewPassword2(e.target.value)}
+              className="w-full mb-4 p-3 bg-black rounded"
+            />
+
+            <button
+              type="button"
+              onClick={handlePasswordChange}
+              className="w-full bg-red-600 hover:bg-red-700 p-3 rounded"
+            >
+              Jelszó módosítása
+            </button>
+          </div>
+        )}
       </div>
 
       {msg && (

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { apiUrl } from "../lib/api";
 
 export default function AdminLogin() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const location = useLocation();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
@@ -52,7 +53,7 @@ export default function AdminLogin() {
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           type="text"
-          placeholder="Admin felhasználónév"
+          placeholder="Admin email címe"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-3 bg-black rounded border border-gray-700"
@@ -78,6 +79,12 @@ export default function AdminLogin() {
         <p className="text-red-500 text-center mt-4">
           {error}
         </p>
+      )}
+
+      {location.state?.logoutSuccess && (
+        <div className="mt-4 p-3 rounded text-center bg-green-600">
+          Sikeres kijelentkezés
+        </div>
       )}
     </div>
   );

@@ -156,12 +156,13 @@ export default function Account() {
       const res = await fetch(
         apiUrl("/users/password.php"),
         {
-          method: "POST",
+          method: "PATCH",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
             old_password: oldPassword,
-            new_password: newPassword
+            new_password: newPassword,
+            confirm_password: newPassword2
           })
         }
       );
@@ -325,7 +326,7 @@ Jelszó módosítása
 
 <input
 type="password"
-placeholder="Jelenlegi jelszó"
+placeholder="Régi jelszó"
 value={oldPassword}
 onChange={(e) => setOldPassword(e.target.value)}
 className="w-full mb-3 p-3 bg-black rounded"
@@ -341,7 +342,7 @@ className="w-full mb-3 p-3 bg-black rounded"
 
 <input
 type="password"
-placeholder="Új jelszó megerősítése"
+placeholder="Jelszó megerősítés"
 value={newPassword2}
 onChange={(e) => setNewPassword2(e.target.value)}
 className="w-full mb-4 p-3 bg-black rounded"

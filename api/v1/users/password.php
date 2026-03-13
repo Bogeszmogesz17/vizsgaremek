@@ -7,11 +7,19 @@ $data = readJsonInput();
 
 $oldPassword = (string)($data["old_password"] ?? "");
 $newPassword = (string)($data["new_password"] ?? "");
+$confirmPassword = (string)($data["confirm_password"] ?? "");
 
-if ($oldPassword === "" || $newPassword === "") {
+if ($oldPassword === "" || $newPassword === "" || $confirmPassword === "") {
     jsonResponse([
         "success" => false,
         "message" => "Hiányzó adatok"
+    ], 400);
+}
+
+if ($newPassword !== $confirmPassword) {
+    jsonResponse([
+        "success" => false,
+        "message" => "Az új jelszavak nem egyeznek"
     ], 400);
 }
 

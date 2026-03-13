@@ -355,7 +355,7 @@ export default function AdminDashboard() {
     } catch (err) {
       console.error("Logout error:", err);
     } finally {
-      navigate("/admin-login");
+      navigate("/admin-login", { state: { logoutSuccess: true } });
     }
   };
 

@@ -10,7 +10,8 @@ $data = json_decode(file_get_contents("php://input"), true);
 
 if (
     empty($data["old_password"]) ||
-    empty($data["new_password"])
+    empty($data["new_password"]) ||
+    empty($data["confirm_password"])
 ) {
     echo json_encode([
         "success" => false,
@@ -22,6 +23,15 @@ if (
 $userId = $_SESSION["user_id"];
 $oldPassword = $data["old_password"];
 $newPassword = $data["new_password"];
+$confirmPassword = $data["confirm_password"];
+
+if ($newPassword !== $confirmPassword) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Az új jelszavak nem egyeznek"
+    ]);
+    exit;
+}
 
 $stmt = $pdo->prepare("SELECT password FROM users WHERE id = :id");
 $stmt->execute([":id" => $userId]);
