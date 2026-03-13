@@ -7,6 +7,7 @@ require 'phpmailer/src/Exception.php';
 require 'phpmailer/src/PHPMailer.php';
 require 'phpmailer/src/SMTP.php';
 require "./core/config.php";
+require_once "./core/email_template.php";
 
 require "./core/settings.php";
 require_once "db.php";
@@ -15,35 +16,63 @@ header("Access-Control-Allow-Origin: http://localhost:5173");
 header("Access-Control-Allow-Credentials: true");
 header("Content-Type: application/json");
 
-if (!isset($_SESSION["user_id"])) {
-    echo json_encode(["success" => false]);
+if (!isset($_SESSION["user_id"]) && !isset($_SESSION["admin_id"])) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Nincs bejelentkezve"
+    ]);
     exit;
 }
 
-$user_id = $_SESSION["user_id"];
+$isAdmin = isset($_SESSION["admin_id"]);
+$user_id = $_SESSION["user_id"] ?? null;
 
 $data = json_decode(file_get_contents("php://input"), true);
-$booking_id = $data["booking_id"];
+$booking_id = isset($data["booking_id"]) ? (int)$data["booking_id"] : 0;
 
+if ($booking_id <= 0) {
+    echo json_encode([
+        "success" => false,
+        "message" => "Érvénytelen foglalás azonosító"
+    ]);
+    exit;
+}
 
-// ===== Foglalás adatok lekérése =====
-
-$stmt = $pdo->prepare("
-SELECT 
-    wp.appointment_date,
-    wp.appointment_time,
-    u.name,
-    b.brand_name,
-    m.model_name
-FROM work_process wp
-JOIN vehicles v ON v.id = wp.vehicle_id
-JOIN users u ON u.id = v.user_id
-JOIN model m ON m.id = v.model_id
-JOIN brand b ON b.id = m.brand_id
-WHERE wp.id = ? AND v.user_id = ?
-");
-
-$stmt->execute([$booking_id, $user_id]);
+if ($isAdmin) {
+    $stmt = $pdo->prepare("
+    SELECT 
+        wp.appointment_date,
+        wp.appointment_time,
+        u.name,
+        u.email,
+        b.brand_name,
+        m.model_name
+    FROM work_process wp
+    JOIN vehicles v ON v.id = wp.vehicle_id
+    JOIN users u ON u.id = v.user_id
+    JOIN model m ON m.id = v.model_id
+    JOIN brand b ON b.id = m.brand_id
+    WHERE wp.id = ?
+    ");
+    $stmt->execute([$booking_id]);
+} else {
+    $stmt = $pdo->prepare("
+    SELECT 
+        wp.appointment_date,
+        wp.appointment_time,
+        u.name,
+        u.email,
+        b.brand_name,
+        m.model_name
+    FROM work_process wp
+    JOIN vehicles v ON v.id = wp.vehicle_id
+    JOIN users u ON u.id = v.user_id
+    JOIN model m ON m.id = v.model_id
+    JOIN brand b ON b.id = m.brand_id
+    WHERE wp.id = ? AND v.user_id = ?
+    ");
+    $stmt->execute([$booking_id, $user_id]);
+}
 
 $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -55,14 +84,11 @@ if (!$booking) {
     exit;
 }
 
-$appointment_date = $booking["appointment_date"];
-
 $today = new DateTime();
-$booking_date = new DateTime($appointment_date);
-
+$booking_date = new DateTime($booking["appointment_date"]);
 $diff = $today->diff($booking_date)->days;
 
-if ($booking_date <= $today || $diff < 2) {
+if (!$isAdmin && ($booking_date <= $today || $diff < 2)) {
     echo json_encode([
         "success" => false,
         "message" => "Foglalást csak 2 nappal előtte lehet lemondani"
@@ -70,23 +96,15 @@ if ($booking_date <= $today || $diff < 2) {
     exit;
 }
 
-
-// ===== Foglalás törlése =====
-
 $stmt = $pdo->prepare("
 DELETE FROM work_process
 WHERE id = ?
 ");
-
 $stmt->execute([$booking_id]);
-
-
-// ===== EMAIL AZ ADMINNAK =====
 
 $mail = new PHPMailer(true);
 
 try {
-
     $mail->isSMTP();
     $mail->Host = 'smtp.gmail.com';
     $mail->SMTPAuth = true;
@@ -94,39 +112,55 @@ try {
     $mail->Password = MAIL_PASS;
     $mail->SMTPSecure = 'tls';
     $mail->Port = 587;
-
+    $mail->CharSet = 'UTF-8';
+    $mail->Encoding = 'base64';
     $mail->setFrom(MAIL_USER, 'Dupla Dugattyú Műhely');
-
-    // ADMIN EMAIL
-    $mail->addAddress(MAIL_USER);
-
     $mail->isHTML(true);
-    $mail->Subject = 'Foglalás lemondva';
 
-    $mail->Body = '
-    <div style="font-family:Arial;padding:20px">
+    if ($isAdmin) {
+        if (!empty($booking["email"])) {
+            $mail->addAddress($booking["email"], $booking["name"] ?? "");
+        } else {
+            $mail->addAddress(MAIL_USER);
+        }
 
-    <h2>Időpont lemondva</h2>
+        $mail->addBCC(MAIL_USER);
+        $mail->Subject = 'Lemondott időpont';
 
-    <p><b>'.$booking["name"].'</b> lemondta az időpontját.</p>
+        $mail->Body = renderWorkshopEmail(
+            "Időpont lemondva",
+            "A Dupla Dugattyú Műhely adminisztrátora lemondta a foglalásodat.",
+            $booking["name"] ?? "",
+            [
+                "Dátum" => $booking["appointment_date"],
+                "Időpont" => $booking["appointment_time"],
+                "Autó" => trim(($booking["brand_name"] ?? "") . " " . ($booking["model_name"] ?? ""))
+            ],
+            "Kérdés esetén kérjük, vedd fel velünk a kapcsolatot."
+        );
+    } else {
+        $mail->addAddress(MAIL_USER);
+        $mail->Subject = 'Foglalás lemondva';
 
-    <p>
-    <b>Dátum:</b> '.$booking["appointment_date"].'<br>
-    <b>Időpont:</b> '.$booking["appointment_time"].'<br>
-    <b>Autó:</b> '.$booking["brand_name"].' '.$booking["model_name"].'
-    </p>
-
-    </div>
-    ';
+        $mail->Body = renderWorkshopEmail(
+            "Időpont lemondva",
+            $booking["name"] . " lemondta az időpontját.",
+            "",
+            [
+                "Dátum" => $booking["appointment_date"],
+                "Időpont" => $booking["appointment_time"],
+                "Autó" => trim($booking["brand_name"] . " " . $booking["model_name"])
+            ]
+        );
+    }
 
     $mail->send();
-
 } catch (Exception $e) {
-    // ha email hiba van, attól még a lemondás működik
 }
-
 
 echo json_encode([
     "success" => true,
-    "message" => "Sikeres lemondás, emailben tájékoztatjuk a szervizt!"
+    "message" => $isAdmin
+        ? "Sikeres lemondás, emailben tájékoztattuk az ügyfelet."
+        : "Sikeres lemondás, emailben tájékoztatjuk a szervizt!"
 ]);

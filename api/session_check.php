@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 require "./core/settings.php";
 
 if (isset($_SESSION["admin_id"])) {

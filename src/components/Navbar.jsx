@@ -1,17 +1,15 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import logo from "./logo.png";
-
-
+import { apiUrl } from "../lib/api";
 export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [auth, setAuth] = useState(null);
   const [showLogoutPopup, setShowLogoutPopup] = useState(false);
   const navigate = useNavigate();
 
-  // SESSION ELLENŐRZÉS
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/session_check.php", {
+    fetch(apiUrl("/auth/session.php"), {
       credentials: "include",
     })
       .then(res => res.json())
@@ -19,10 +17,9 @@ export default function Navbar() {
       .catch(() => setAuth({ loggedIn: false }));
   }, []);
 
-  // LOGOUT
   const logout = async () => {
-
-    await fetch("http://localhost/vizsga/api/logout.php", {
+    await fetch(apiUrl("/auth/session.php"), {
+      method: "DELETE",
       credentials: "include",
     });
 
@@ -32,23 +29,22 @@ export default function Navbar() {
 
   };
 
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <nav className="bg-black border-b border-gray-800">
-      <div className="flex items-center justify-between px-6 py-3">
-
-        {/* LOGÓ */}
-        <Link to="/" className="flex items-center gap-3">
+      <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+        <Link to="/" className="flex items-center gap-2 sm:gap-3 min-w-0">
           <img
             src={logo}
             alt="Dupla dugattyú műhely logó"
-            className="w-20 h-20 rounded-sm object-cover"
+            className="w-14 h-14 sm:w-20 sm:h-20 rounded-sm object-cover shrink-0"
           />
-          <span className="text-white font-bold text-lg">
+          <span className="text-white font-bold text-base sm:text-lg leading-tight truncate">
             Dupla dugattyú műhely
           </span>
         </Link>
 
-        {/* DESKTOP MENÜ */}
         <div className="hidden md:flex items-center gap-10">
           <ul className="flex items-center gap-6 text-gray-300">
             <li><Link to="/" className="hover:text-red-600">Főoldal</Link></li>
@@ -57,7 +53,6 @@ export default function Navbar() {
             <li><Link to="/kapcsolat" className="hover:text-red-600">Kapcsolat</Link></li>
           </ul>
 
-          {/* AUTH RÉSZ */}
           {auth === null ? null : !auth.loggedIn ? (
             <div className="flex items-center gap-4">
               <Link to="/login">Bejelentkezés</Link>
@@ -70,8 +65,6 @@ export default function Navbar() {
             </div>
           ) : (
             <div className="flex items-center gap-4">
-
-              {/* ADMIN */}
               {auth.role === "admin" && (
                 <Link
                   to="/admin"
@@ -81,7 +74,6 @@ export default function Navbar() {
                 </Link>
               )}
 
-              {/* USER */}
               {auth.role === "user" && (
                 <Link to="/fiok" className="hover:text-red-600">
                   Fiókom
@@ -98,61 +90,62 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* MOBIL TOGGLE */}
         <button
-          className="text-white text-2xl md:hidden"
+          className="text-white text-2xl md:hidden w-10 h-10 flex items-center justify-center"
           onClick={() => setMenuOpen(!menuOpen)}
+          aria-label="Mobil menü megnyitása"
         >
           ☰
         </button>
       </div>
 
-      {/* MOBIL MENÜ */}
       {menuOpen && (
         <div className="md:hidden bg-black border-t border-gray-800 text-gray-300">
           <ul>
-            <li className="px-6 py-3"><Link to="/" onClick={() => setMenuOpen(false)}>Főoldal</Link></li>
-            <li className="px-6 py-3"><Link to="/szolgaltatasok" onClick={() => setMenuOpen(false)}>Szolgáltatások</Link></li>
-            <li className="px-6 py-3"><Link to="/idopont" onClick={() => setMenuOpen(false)}>Időpontfoglalás</Link></li>
-            <li className="px-6 py-3"><Link to="/kapcsolat" onClick={() => setMenuOpen(false)}>Kapcsolat</Link></li>
+            <li className="px-6 py-3"><Link to="/" onClick={closeMenu}>Főoldal</Link></li>
+            <li className="px-6 py-3"><Link to="/szolgaltatasok" onClick={closeMenu}>Szolgáltatások</Link></li>
+            <li className="px-6 py-3"><Link to="/idopont" onClick={closeMenu}>Időpontfoglalás</Link></li>
+            <li className="px-6 py-3"><Link to="/kapcsolat" onClick={closeMenu}>Kapcsolat</Link></li>
           </ul>
 
           <div className="border-t border-gray-800">
             {!auth?.loggedIn ? (
               <>
-                <Link to="/login" className="block px-6 py-3">Bejelentkezés</Link>
-                <Link to="/regisztracio" className="block px-6 py-3 text-red-600">Regisztráció</Link>
+                <Link to="/login" onClick={closeMenu} className="block px-6 py-3">Bejelentkezés</Link>
+                <Link to="/regisztracio" onClick={closeMenu} className="block px-6 py-3 text-red-600">Regisztráció</Link>
               </>
             ) : (
-              <>
+              <div className="px-6 py-3 space-y-3">
                 {auth.role === "admin" && (
-                  <Link to="/admin" className="block px-6 py-3 text-red-500">
+                  <Link to="/admin" onClick={closeMenu} className="block text-red-500">
                     Admin felület
                   </Link>
                 )}
 
                 {auth.role === "user" && (
-                  <Link to="/fiok" className="block px-6 py-3">
+                  <Link to="/fiok" onClick={closeMenu} className="block">
                     Fiókom
                   </Link>
                 )}
 
                 <button
                   type="button"
-                  onClick={logout}
-                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white"
+                  onClick={() => {
+                    closeMenu();
+                    logout();
+                  }}
+                  className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-white w-full text-left"
                 >
                   Kijelentkezés
                 </button>
-              </>
+              </div>
             )}
           </div>
         </div>
       )}
       {showLogoutPopup && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[9999]">
-
-          <div className="bg-green-600 p-8 rounded text-center max-w-sm w-full">
+          <div className="bg-green-600 p-8 rounded text-center max-w-sm w-[calc(100%-1rem)] sm:w-full">
 
             <p className="text-white text-lg mb-6 font-semibold">
               Sikeres kijelentkezés

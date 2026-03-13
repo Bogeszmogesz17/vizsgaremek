@@ -48,7 +48,6 @@ try {
         exit;
     }
 
-    // ✅ EGYSÉGES SESSION
     $_SESSION["admin_id"] = $admin["id"];
     $_SESSION["admin_name"] = $admin["name"];
     $_SESSION["role"] = "admin";

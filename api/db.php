@@ -1,8 +1,4 @@
 <?php
-// ===============================
-// ADATBÁZIS KAPCSOLAT (PDO)
-// ===============================
-
 $host = "localhost";
 $dbname = "vizsga2";   
 $user = "root";

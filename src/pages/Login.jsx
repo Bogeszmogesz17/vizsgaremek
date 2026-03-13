@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 export default function Login() {
 
@@ -18,17 +19,12 @@ export default function Login() {
       return;
     }
 
-    const url =
-      role === "admin"
-        ? "http://localhost/vizsga/api/admin_login.php"
-        : "http://localhost/vizsga/api/login.php";
-
     try {
-      const res = await fetch(url, {
+      const res = await fetch(apiUrl("/auth/login.php"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ role, email, password })
       });
 
       const data = await res.json();
@@ -38,7 +34,6 @@ export default function Login() {
         return;
       }
 
-      // ✅ TELJES RELOAD → Navbar frissül
       if (role === "admin") {
         window.location.href = "/admin";
       } else {
@@ -51,14 +46,13 @@ export default function Login() {
   };
 
   return (
-    <div className="max-w-md mx-auto bg-gray-900 p-8 rounded text-white mt-10">
+    <div className="w-[calc(100%-1rem)] sm:w-full max-w-md mx-auto bg-gray-900 p-5 sm:p-8 rounded text-white mt-6 sm:mt-10">
 
-      <h1 className="text-3xl font-bold text-red-600 text-center mb-6">
+      <h1 className="text-2xl sm:text-3xl font-bold text-red-600 text-center mb-6">
         Bejelentkezés
       </h1>
 
-      {/* ROLE VÁLASZTÓ */}
-      <div className="flex justify-center gap-6 mb-6">
+      <div className="flex flex-wrap justify-center gap-4 sm:gap-6 mb-6">
         <label className="flex items-center gap-2">
           <input
             type="radio"
@@ -122,8 +116,7 @@ export default function Login() {
         </Link>
       </p>
 
-      {/* JAVÍTOTT ROUTE */}
-      <p className="text-center text-gray-400 mt-4">
+      <p className="text-center text-gray-400 text-sm sm:text-base mt-4">
         Még nem vagy regisztrálva?{" "}
         <Link
           to="/regisztracio"

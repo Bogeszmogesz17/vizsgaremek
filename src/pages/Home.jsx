@@ -1,6 +1,3 @@
-// ===============================
-// FŐOLDAL – MODERN BEMUTATKOZÁS
-// ===============================
 
 console.log("HOME PAGE LOADED");
 
@@ -10,7 +7,6 @@ export default function Home() {
   return (
     <div className="space-y-20">
 
-      {/* HERO */}
       <section className="text-center space-y-6">
         <h1 className="text-4xl md:text-5xl font-bold text-red-600">
           Megbízható autószerviz, modern megoldásokkal
@@ -40,7 +36,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BEMUTATKOZÁS */}
       <section className="max-w-4xl mx-auto text-gray-400 space-y-4 text-center">
         <p>
           Tapasztalt szerelőcsapatunk több éves szakmai múlttal rendelkezik,
@@ -52,7 +47,6 @@ export default function Home() {
         </p>
       </section>
 
-      {/* KÁRTYÁK */}
       <section className="grid gap-6 md:grid-cols-3">
 
         <div className="bg-gray-900 hover:bg-gray-800 transition p-6 rounded-xl border border-gray-800">
@@ -86,7 +80,6 @@ export default function Home() {
 
       </section>
 
-      {/* CTA */}
       <section className="bg-gradient-to-r from-gray-900 to-black p-8 rounded-xl text-center border border-gray-800">
         <h2 className="text-2xl font-bold text-white">
           Készen állsz az időpontfoglalásra?

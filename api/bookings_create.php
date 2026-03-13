@@ -5,11 +5,11 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
 require "./core/config.php";
+require_once "./core/email_template.php";
 require 'phpmailer/src/Exception.php';
 require 'phpmailer/src/PHPMailer.php';
 require 'phpmailer/src/SMTP.php';
 
-// ===== CORS =====
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     header("Access-Control-Allow-Origin: http://localhost:5173");
     header("Access-Control-Allow-Credentials: true");
@@ -38,7 +38,6 @@ $user_id = $_SESSION["user_id"];
 
 $data = json_decode(file_get_contents("php://input"), true);
 
-// ===== Kötelező mezők =====
 $required = [
     "appointment_date",
     "appointment_time",
@@ -59,7 +58,6 @@ foreach ($required as $field) {
     }
 }
 
-// ===== Adatok =====
 $appointment_date = $data["appointment_date"];
 $appointment_time = $data["appointment_time"];
 $service_id       = (int)$data["service"];
@@ -68,7 +66,6 @@ $car_year         = (int)$data["car_year"];
 $fuel_type        = (int)$data["fuel_type"];
 $engine_size      = $data["engine_size"] ?? null;
 
-// ===== múltbeli időpont tiltása =====
 
 $currentDateTime = new DateTime();
 $appointmentDateTime = new DateTime($appointment_date . ' ' . $appointment_time);
@@ -85,7 +82,6 @@ try {
 
     $pdo->beginTransaction();
 
-    // ===== Jármű keresése =====
     $stmt = $pdo->prepare("
         SELECT id 
         FROM vehicles 
@@ -107,7 +103,6 @@ try {
 
     $vehicle_id = $stmt->fetchColumn();
 
-    // ===== Ha nincs jármű → létrehozás =====
     if (!$vehicle_id) {
 
     $stmt = $pdo->prepare("
@@ -127,7 +122,6 @@ try {
     $vehicle_id = $pdo->lastInsertId();
 }
 
-    // ===== Időpont foglaltság =====
     $stmt = $pdo->prepare("
         SELECT COUNT(*) 
         FROM work_process
@@ -153,7 +147,6 @@ try {
     exit;
 }
 
-    // ===== work_process =====
     $stmt = $pdo->prepare("
         INSERT INTO work_process
         (vehicle_id, appointment_date, appointment_time, status, issued_at, work_price, material_price, method_id, invoices_id)
@@ -168,7 +161,6 @@ try {
 
     $work_process_id = $pdo->lastInsertId();
 
-    // ===== szolgáltatás =====
     $stmt = $pdo->prepare("
         INSERT INTO work_process_services
         (work_process_id, service_id)
@@ -180,7 +172,6 @@ try {
         $service_id
     ]);
 
-    // ===== autó adatok emailhez =====
     $stmt = $pdo->prepare("
 SELECT b.brand_name AS brand, m.model_name AS model
 FROM model m
@@ -201,7 +192,6 @@ LIMIT 1
     }
     $pdo->commit();
 
-    // ===== EMAIL =====
 
     $mail = new PHPMailer(true);
 
@@ -214,6 +204,8 @@ LIMIT 1
         $mail->Password = MAIL_PASS;
         $mail->SMTPSecure = 'tls';
         $mail->Port = 587;
+        $mail->CharSet = 'UTF-8';
+        $mail->Encoding = 'base64';
 
         $mail->setFrom('bogibodis6@gmail.com', 'Dupla Dugattyú Műhely');
         $mail->addAddress($_SESSION["email"], $_SESSION["name"]);
@@ -221,27 +213,17 @@ LIMIT 1
         $mail->isHTML(true);
         $mail->Subject = 'Sikeres foglalás';
 
-        $mail->Body = '
-        <div style="font-family:Arial;padding:20px">
-        <h2>Sikeres foglalás</h2>
-
-        <p>Szia <b>'.$_SESSION["name"].'</b>!</p>
-
-        <p>A foglalásod sikeresen rögzítésre került.</p>
-
-        <p>
-        <b>Dátum:</b> '.$appointment_date.'<br>
-        <b>Időpont:</b> '.$appointment_time.'<br>
-        <b>Autó:</b> '.$car_brand.' '.$car_model_name.'
-        </p>
-
-        <p>
-        Foglalását legkésőbb <b>2 nappal az időpont előtt</b> tudja lemondani.
-        </p>
-
-        <p>Dupla Dugattyú Műhely</p>
-        </div>
-        ';
+        $mail->Body = renderWorkshopEmail(
+            "Sikeres foglalás",
+            "A foglalásod sikeresen rögzítésre került.",
+            $_SESSION["name"] ?? "",
+            [
+                "Dátum" => $appointment_date,
+                "Időpont" => $appointment_time,
+                "Autó" => trim($car_brand . " " . $car_model_name)
+            ],
+            "Foglalásodat legkésőbb 2 nappal az időpont előtt tudod lemondani."
+        );
 
         $mail->send();
 

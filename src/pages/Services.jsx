@@ -1,14 +1,12 @@
 import { useState, useEffect } from "react";
+import { apiUrl } from "../lib/api";
 
 export default function Services() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // -------------------------------
-  // Adatok betöltése adatbázisból
-  // -------------------------------
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/services.php", {
+    fetch(apiUrl("/catalog/services.php"), {
       credentials: "include",
     })
       .then(res => res.json())
@@ -23,8 +21,6 @@ export default function Services() {
 
   return (
     <div className="space-y-12 max-w-4xl mx-auto">
-
-      {/* ---------- CÍM ---------- */}
       <section className="text-center">
         <h1 className="text-4xl font-bold text-red-600">
           Szolgáltatásaink
@@ -36,12 +32,10 @@ export default function Services() {
         </p>
       </section>
 
-      {/* ---------- TÖLTÉS ---------- */}
       {loading && (
         <p className="text-center text-gray-400">Betöltés...</p>
       )}
 
-      {/* ---------- SZOLGÁLTATÁS LISTA ---------- */}
       <section className="space-y-4">
 
         {services.map((service) => (

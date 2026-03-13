@@ -1,6 +1,7 @@
 <?php
 require "./core/settings.php";
 require "./core/config.php";
+require_once "./core/email_template.php";
 require "phpmailer/src/Exception.php";
 require "phpmailer/src/PHPMailer.php";
 require "phpmailer/src/SMTP.php";
@@ -41,7 +42,6 @@ try {
         echo json_encode(["success" => false, "message" => "Munka nem található"]);
         exit;
     }
-    // státusz frissítése
     $stmt = $pdo->prepare("
         UPDATE work_process
         SET status = 1
@@ -57,25 +57,24 @@ try {
         $mail->Password = MAIL_PASS;
         $mail->SMTPSecure = "tls";
         $mail->Port = 587;
+        $mail->CharSet = "UTF-8";
+        $mail->Encoding = "base64";
 
         $mail->setFrom(MAIL_USER, "Dupla Dugattyú Műhely");
         $mail->addAddress($customer["user_email"], $customer["user_name"]);
 
         $mail->isHTML(true);
         $mail->Subject = "Munka elkeszult";
-        $mail->Body = '
-            <div style="font-family:Arial;padding:20px">
-                <h2>Elkészült a munkafolyamat</h2>
-                <p>Szia <b>' . $customer["user_name"] . '</b>!</p>
-                <p>Tájékoztatunk, hogy a munkád elkészült.</p>
-                <p>
-                    <b>Dátum:</b> ' . $customer["appointment_date"] . '<br>
-                    <b>Időpont:</b> ' . $customer["appointment_time"] . '<br>
-                    <b>Autó:</b> ' . $customer["car_brand"] . " " . $customer["car_model"] . '
-                </p>
-                <p>Dupla Dugattyú Műhely</p>
-            </div>
-        ';
+        $mail->Body = renderWorkshopEmail(
+            "Elkészült a munkafolyamat",
+            "Tájékoztatunk, hogy a munkád elkészült.",
+            $customer["user_name"],
+            [
+                "Dátum" => $customer["appointment_date"],
+                "Időpont" => $customer["appointment_time"],
+                "Autó" => trim($customer["car_brand"] . " " . $customer["car_model"])
+            ]
+        );
         $mail->send();
     } catch (\PHPMailer\PHPMailer\Exception $e) {}
 

@@ -1,14 +1,10 @@
 <?php
-// ===============================
-// ADMIN SETUP – ELSŐ ADMIN LÉTREHOZÁSA
-// ===============================
 
 require "./core/settings.php";
 
 
 require_once "db.php";
 
-// 1️⃣ MEGNÉZZÜK: VAN-E MÁR ADMIN
 $count = $pdo->query("SELECT COUNT(*) FROM admins")->fetchColumn();
 
 if ($count > 0) {
@@ -19,7 +15,6 @@ if ($count > 0) {
     exit;
 }
 
-// 2️⃣ ADATOK BEOLVASÁSA
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (
@@ -36,7 +31,6 @@ if (
 $username = trim($data["username"]);
 $password = password_hash($data["password"], PASSWORD_DEFAULT);
 
-// 3️⃣ ADMIN LÉTREHOZÁSA
 $stmt = $pdo->prepare("
     INSERT INTO admins (username, password)
     VALUES (?, ?)

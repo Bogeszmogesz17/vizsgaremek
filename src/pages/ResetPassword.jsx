@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 export default function ResetPassword() {
 
@@ -29,8 +30,8 @@ export default function ResetPassword() {
       return;
     }
 
-    const res = await fetch("http://localhost/vizsga/api/reset_password.php", {
-      method: "POST",
+    const res = await fetch(apiUrl("/auth/password-resets.php"), {
+      method: "PATCH",
       headers: {
         "Content-Type": "application/json"
       },
@@ -49,7 +50,6 @@ export default function ResetPassword() {
 
     setMsg(data.message);
 
-    // siker után vissza loginra
     setTimeout(() => {
       navigate("/login");
     }, 2000);

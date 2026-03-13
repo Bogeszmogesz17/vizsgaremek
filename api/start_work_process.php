@@ -18,7 +18,6 @@ if (empty($data["booking_id"])) {
 $booking_id = (int)$data["booking_id"];
 
 try {
-    // 🔎 Foglalás lekérése
     $stmt = $pdo->prepare("
         SELECT user_id, appointment_date, appointment_time
         FROM bookings
@@ -36,7 +35,6 @@ try {
         exit;
     }
 
-    // ➕ work_process létrehozása
     $insert = $pdo->prepare("
         INSERT INTO work_process (
             user_id,

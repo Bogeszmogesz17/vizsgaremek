@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 
 require "./core/settings.php";
 require_once "db.php";

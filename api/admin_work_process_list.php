@@ -9,10 +9,13 @@ try {
             wp.id,
             wp.appointment_date,
             wp.appointment_time,
+            wp.work_price,
+            wp.material_price,
             COALESCE(s.name, '') AS description,
             u.name AS user_name,
             u.email AS user_email,
             u.phone_number,
+            CONCAT(COALESCE(st.post_code, ''), ' ', COALESCE(st.settlement_name, ''), ', ', COALESCE(u.address, '')) AS user_address,
             b.brand_name AS car_brand,
             m.model_name AS car_model
         FROM work_process wp
@@ -20,6 +23,7 @@ try {
         LEFT JOIN services s ON s.id = wps.service_id
         JOIN vehicles v ON wp.vehicle_id = v.id
         JOIN users u ON v.user_id = u.id
+        LEFT JOIN settlement st ON st.id = u.settlement_id
         JOIN model m ON v.model_id = m.id
         JOIN brand b ON m.brand_id = b.id
         WHERE (wp.status = 0 OR wp.status IS NULL)

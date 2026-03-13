@@ -23,7 +23,6 @@ $userId = $_SESSION["user_id"];
 $oldPassword = $data["old_password"];
 $newPassword = $data["new_password"];
 
-// 🔍 régi jelszó lekérés
 $stmt = $pdo->prepare("SELECT password FROM users WHERE id = :id");
 $stmt->execute([":id" => $userId]);
 $user = $stmt->fetch();
@@ -36,7 +35,6 @@ if (!$user || !password_verify($oldPassword, $user["password"])) {
     exit;
 }
 
-// 🔐 új jelszó mentése
 $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
 
 $update = $pdo->prepare("

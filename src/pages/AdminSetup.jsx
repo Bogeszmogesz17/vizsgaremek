@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 export default function AdminSetup() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export default function AdminSetup() {
     setSuccess("");
 
     const res = await fetch(
-      "http://localhost/vizsga/api/setup_admin.php",
+      apiUrl("/auth/admin-setup.php"),
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -33,7 +34,6 @@ export default function AdminSetup() {
     setTimeout(() => navigate("/admin-login"), 1500);
   };
 
-  // ⬇️⬇️⬇️ EZ HIÁNYZOTT ⬇️⬇️⬇️
   return (
     <div className="max-w-md mx-auto bg-gray-900 p-8 rounded text-white mt-20">
       <h1 className="text-2xl text-center mb-6 text-red-600">

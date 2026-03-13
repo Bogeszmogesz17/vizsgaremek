@@ -1,16 +1,13 @@
-// ===============================
-// IDŐPONTFOGLALÁS
-// ===============================
 
 import { useState, useEffect } from "react";
+import { apiUrl } from "../lib/api";
 
 export default function Booking() {
 
-  // ===== MÁRKÁK BETÖLTÉSE =====
   const [brands, setBrands] = useState([]);
 
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/brands.php", {
+    fetch(apiUrl("/catalog/brands.php"), {
       credentials: "include"
     })
       .then(res => res.json())
@@ -24,12 +21,10 @@ export default function Booking() {
 
 
 
-  // ===== ÉV =====
   const currentYear = new Date().getFullYear();
   const availableYears = [currentYear, currentYear + 1];
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
-  // ===== STATE =====
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState("");
   const [bookedTimes, setBookedTimes] = useState([]);
@@ -54,7 +49,7 @@ export default function Booking() {
 
     if (!selectedDate) return;
 
-    fetch(`http://localhost/vizsga/api/booked_times.php?date=${selectedDate}`, {
+    fetch(apiUrl(`/availability/times.php?date=${selectedDate}`), {
       credentials: "include"
     })
       .then(res => res.json())
@@ -74,18 +69,11 @@ export default function Booking() {
       return;
     }
 
-    console.log("FETCHING MODEL FOR:", carBrand);
-
-    fetch(`http://localhost/vizsga/api/models.php?brand_id=${carBrand}`, {
+    fetch(apiUrl(`/catalog/models.php?brand_id=${carBrand}`), {
       credentials: "include"
     })
-      .then(res => {
-        console.log("STATUS:", res.status);
-        return res.json();
-      })
+      .then(res => res.json())
       .then(data => {
-        console.log("MODEL RESPONSE:", data);
-
         if (data.success) {
           setModels(data.models);
         }
@@ -95,12 +83,11 @@ export default function Booking() {
   }, [carBrand]);
 
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/bookable_services.php?bookable=1", {
+    fetch(apiUrl("/catalog/services.php?bookable=1"), {
       credentials: "include"
     })
       .then(res => res.json())
       .then(data => {
-        console.log("BOOKABLE SERVICES:", data); // ideiglenes debug
         if (data.success) {
           setServices(data.services);
         }
@@ -109,7 +96,7 @@ export default function Booking() {
   }, []);
 
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/engine_sizes.php", {
+    fetch(apiUrl("/catalog/engine-sizes.php"), {
       credentials: "include"
     })
       .then(res => res.json())
@@ -127,7 +114,7 @@ export default function Booking() {
   const [fuelType, setFuelType] = useState("");
   const [fuelTypes, setFuelTypes] = useState([]);
   useEffect(() => {
-    fetch("http://localhost/vizsga/api/fuel_types.php", {
+    fetch(apiUrl("/catalog/fuel-types.php"), {
       credentials: "include"
     })
       .then(res => res.json())
@@ -146,13 +133,11 @@ export default function Booking() {
     message: ""
   });
 
-  // ===== ÉVJÁRATOK =====
   const carYears = Array.from(
     { length: currentYear - 1990 + 1 },
     (_, i) => currentYear - i
   );
 
-  // ===== HÓNAPOK =====
   const months = [
     { value: "01", label: "Január" },
     { value: "02", label: "Február" },
@@ -223,10 +208,7 @@ export default function Booking() {
   );
   const isElectric = selectedFuel?.fuel_name?.toLowerCase() === "elektromos";
 
-  // ===== FOGLALÁS =====
   const handleBooking = async () => {
-
-    console.log("BOOKING CLICK");
 
     if (!selectedDate || !selectedTime) {
       alert("Válassz dátumot és időpontot!");
@@ -245,7 +227,7 @@ export default function Booking() {
 
     try {
 
-      const res = await fetch("http://localhost/vizsga/api/bookings_create.php", {
+      const res = await fetch(apiUrl("/bookings/index.php"), {
         method: "POST",
         credentials: "include",
         headers: {
@@ -265,8 +247,6 @@ export default function Booking() {
 
       const data = await res.json();
 
-      console.log("BOOKING RESPONSE:", data);
-
       if (!data.success) {
         setPopup({
           show: true,
@@ -276,7 +256,6 @@ export default function Booking() {
         return;
       }
 
-      // ===== SIKERES FOGLALÁS =====
 
       setPopup({
         show: true,
@@ -284,7 +263,6 @@ export default function Booking() {
         message: "Sikeres foglalás 🎉"
       });
 
-      // mezők reset
       setSelectedService("");
       setSelectedMonth("");
       setSelectedDay("");
@@ -297,7 +275,6 @@ export default function Booking() {
       setFuelType("");
       setEngineSize("");
 
-      // időpont lista frissítése
       setBookedTimes(prev => [...prev, selectedTime]);
 
     } catch (err) {
@@ -313,19 +290,17 @@ export default function Booking() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-10 text-white">
+    <div className="max-w-4xl mx-auto space-y-8 sm:space-y-10 text-white">
 
-      {/* CÍM */}
       <section className="text-center">
-        <h1 className="text-4xl font-bold text-red-600">Időpontfoglalás</h1>
+        <h1 className="text-3xl sm:text-4xl font-bold text-red-600">Időpontfoglalás</h1>
         <p className="text-gray-400 mt-4">
           Válassz dátumot és szabad időpontot.
         </p>
       </section>
 
-      {/* DÁTUM */}
-      <section className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-        <div className="grid grid-cols-3 gap-4">
+      <section className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
 
           <select
             value={selectedYear}
@@ -386,10 +361,9 @@ export default function Booking() {
         </div>
       </section>
 
-      {/* IDŐPONT */}
       {selectedDate && (
-        <section className="bg-gray-900 p-6 rounded-lg border border-gray-800">
-          <div className="grid grid-cols-4 md:grid-cols-6 gap-2">
+        <section className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-2">
             {timeSlots.map((t) => {
 
               const booked = bookedTimes.some(time => time.startsWith(t));
@@ -421,8 +395,7 @@ export default function Booking() {
         </section>
       )}
 
-      {/* SZOLGÁLTATÁS */}
-      <section className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+      <section className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
         <select
           value={selectedService}
           onChange={(e) => setSelectedService(e.target.value)}
@@ -438,10 +411,8 @@ export default function Booking() {
         </select>
       </section>
 
-      {/* AUTÓ */}
-      <section className="bg-gray-900 p-6 rounded-lg border border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-4">
+      <section className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800 grid grid-cols-1 md:grid-cols-2 gap-4">
 
-        {/* MÁRKA */}
         <select
           value={carBrand}
           onChange={(e) => {
@@ -532,7 +503,7 @@ export default function Booking() {
       {selectedDate && selectedTime && (
         <button
           onClick={handleBooking}
-          className="w-full bg-red-600 hover:bg-red-700 p-4 rounded font-semibold"
+          className="w-full bg-red-600 hover:bg-red-700 p-3 sm:p-4 rounded font-semibold mb-4 sm:mb-6"
         >
           Időpont lefoglalása
         </button>
@@ -540,7 +511,7 @@ export default function Booking() {
       {popup.show && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
           <div
-            className={`p-8 rounded text-center max-w-sm w-full ${popup.success ? "bg-green-700" : "bg-red-700"
+            className={`p-6 sm:p-8 rounded text-center max-w-sm w-[calc(100%-1rem)] sm:w-full ${popup.success ? "bg-green-700" : "bg-red-700"
               }`}
           >
             <p className="text-white text-lg mb-6">{popup.message}</p>

@@ -5,10 +5,8 @@ require_once "db.php";
 
 header("Content-Type: application/json");
 
-// JSON adat
 $data = json_decode(file_get_contents("php://input"), true);
 
-// ellenőrzés
 if (!$data || empty($data["email"]) || empty($data["password"])) {
     echo json_encode([
         "success" => false,

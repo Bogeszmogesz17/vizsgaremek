@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 export default function ForgotPassword() {
 
@@ -11,7 +12,7 @@ export default function ForgotPassword() {
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        const res = await fetch("http://localhost/vizsga/api/forgot_password.php", {
+        const res = await fetch(apiUrl("/auth/password-reset-requests.php"), {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -26,7 +27,6 @@ export default function ForgotPassword() {
 
         setMsg(data.message);
 
-        // ✅ ha sikeres, átirányítás reset oldalra
         if (data.success && data.token) {
             navigate(`/reset-password?token=${data.token}`);
         }

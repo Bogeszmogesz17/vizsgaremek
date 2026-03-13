@@ -11,6 +11,7 @@ try {
             name,
             price
         FROM services
+        WHERE LOWER(TRIM(name)) NOT IN ('fékcsere', 'fekcsere')
         ORDER BY name ASC
     ");
     

@@ -1,13 +1,15 @@
-<?php
+﻿<?php
 require "./core/settings.php";
 require_once "db.php";
 
 header("Content-Type: application/json");
 
-if (!isset($_SESSION['user_id'])) {
+if (!isset($_SESSION['user_id']) && !isset($_SESSION['admin_id'])) {
     echo json_encode(["success" => false]);
     exit;
 }
+$accountId = $_SESSION['user_id'] ?? $_SESSION['admin_id'];
+$role = isset($_SESSION['admin_id']) ? "admin" : "user";
 
 try {
 
@@ -28,12 +30,13 @@ try {
         WHERE u.id = ?
     ");
 
-    $stmt->execute([$_SESSION['user_id']]);
+    $stmt->execute([$accountId]);
 
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
     echo json_encode([
         "success" => true,
+        "role" => $role,
         "user" => $user
     ]);
 

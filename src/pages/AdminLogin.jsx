@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { apiUrl } from "../lib/api";
 
 export default function AdminLogin() {
-  const [email, setEmail] = useState(""); // username megy bele
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const navigate = useNavigate();
@@ -17,18 +18,16 @@ export default function AdminLogin() {
     }
 
     try {
-      const res = await fetch(
-        "http://localhost/vizsga/api/admin_login.php",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            email,      // username megy bele
-            password
-          })
-        }
-      );
+      const res = await fetch(apiUrl("/auth/login.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          role: "admin",
+          email,
+          password
+        })
+      });
 
       const data = await res.json();
 
@@ -52,7 +51,7 @@ export default function AdminLogin() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          type="text"   // ⬅️ EZ A KULCS
+          type="text"
           placeholder="Admin felhasználónév"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
