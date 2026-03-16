@@ -25,7 +25,7 @@ $termsAccepted = filter_var($data["terms_accepted"] ?? false, FILTER_VALIDATE_BO
 if ($termsAccepted !== true) {
     echo json_encode([
         "success" => false,
-        "message" => "A regisztrációhoz kötelező elfogadni az ÁFSZ-t"
+        "message" => "A regisztrációhoz kötelező elfogadni az ÁSZF-et"
     ]);
     exit;
 }

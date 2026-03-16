@@ -73,7 +73,7 @@ export default function Register() {
     }
 
     if (!termsAccepted) {
-      openModal("A regisztrációhoz el kell fogadnod az ÁFSZ-t.", false);
+      openModal("A regisztrációhoz el kell fogadnod az ÁSZF-et.", false);
       return;
     }
 
@@ -211,7 +211,7 @@ export default function Register() {
             <label htmlFor="termsAccepted" className="leading-5">
               Tudomásul veszem és elfogadom az{" "}
               <a
-                href="/aszf.pdf"
+                href="/aszf.html"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-red-500 hover:text-red-400 underline"

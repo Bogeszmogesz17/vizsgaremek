@@ -5,6 +5,7 @@ import AdminSetup from "./pages/AdminSetup";
 import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminProfile from "./pages/AdminProfile";
+import AdminVehicleHistory from "./pages/AdminVehicleHistory";
 
 import Account from "./pages/Account";
 import Home from "./pages/Home";
@@ -18,7 +19,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 function AppContent() {
   const location = useLocation();
-  const hideNavbar = ["/admin", "/admin/profil"].includes(location.pathname);
+  const hideNavbar = ["/admin", "/admin/profil", "/admin/auto-eloelet"].includes(location.pathname);
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
@@ -40,6 +41,7 @@ function AppContent() {
           <Route path="/admin-login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/profil" element={<AdminProfile />} />
+          <Route path="/admin/auto-eloelet" element={<AdminVehicleHistory />} />
         </Routes>
       </main>
 

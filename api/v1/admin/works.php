@@ -59,6 +59,25 @@ if ($date === "" || $time === "" || $serviceName === "") {
     ], 400);
 }
 
+$appointmentDateTime = DateTimeImmutable::createFromFormat("Y-m-d H:i", "{$date} {$time}");
+$dateTimeErrors = DateTimeImmutable::getLastErrors();
+if (
+    !$appointmentDateTime ||
+    ($dateTimeErrors && (($dateTimeErrors["warning_count"] ?? 0) > 0 || ($dateTimeErrors["error_count"] ?? 0) > 0))
+) {
+    jsonResponse([
+        "success" => false,
+        "message" => "Érvénytelen dátum vagy időpont"
+    ], 400);
+}
+
+if ($appointmentDateTime < new DateTimeImmutable("now")) {
+    jsonResponse([
+        "success" => false,
+        "message" => "Korábbi időpontra nem lehet foglalni"
+    ], 400);
+}
+
 try {
     $workStatement = $pdo->prepare("
         SELECT vehicle_id

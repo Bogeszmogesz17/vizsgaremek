@@ -28,15 +28,101 @@ const buildInvoiceNumber = (workId) =>
     .slice(0, 10)
     .replaceAll("-", "")}`;
 
-const buildInvoicePreviewHtml = ({ company, booking }) => {
+const createLocalInvoiceItemId = () =>
+  `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+
+const clampPositiveInt = (value, fallback = 0) => {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.max(0, parsed);
+};
+
+const calculateInvoiceLineTotal = (item) => {
+  const quantity = Math.max(1, clampPositiveInt(item?.quantity, 1));
+  const unitPrice = clampPositiveInt(item?.unit_price, 0);
+  return quantity * unitPrice;
+};
+
+const VAT_RATE = 0.27;
+
+const calculateVatAmount = (netValue = 0) => {
+  const numericNet = Number(netValue);
+  if (!Number.isFinite(numericNet)) return 0;
+  return Math.round(numericNet * VAT_RATE);
+};
+
+const calculateGrossAmount = (netValue = 0) =>
+  Math.max(0, Math.round(Number(netValue) || 0)) + calculateVatAmount(netValue);
+
+const toLocalInvoiceItem = (item = {}) => {
+  const isFixedPrice = Number(item.is_fixed_price) === 1 || item.is_fixed_price === true;
+  return {
+    row_id: createLocalInvoiceItemId(),
+    description: String(item.description || ""),
+    quantity: isFixedPrice ? 1 : Math.max(1, clampPositiveInt(item.quantity, 1)),
+    unit_price: clampPositiveInt(item.unit_price, 0),
+    is_fixed_price: isFixedPrice,
+  };
+};
+
+const toApiInvoiceItems = (items = []) =>
+  items
+    .map((item) => {
+      const description = String(item.description || "").trim();
+      if (!description) return null;
+
+      const isFixedPrice = Boolean(item.is_fixed_price);
+      const quantity = isFixedPrice
+        ? 1
+        : Math.max(1, clampPositiveInt(item.quantity, 1));
+      const unitPrice = clampPositiveInt(item.unit_price, 0);
+
+      return {
+        description,
+        quantity,
+        unit_price: unitPrice,
+        line_total: quantity * unitPrice,
+        is_fixed_price: isFixedPrice ? 1 : 0,
+      };
+    })
+    .filter(Boolean);
+
+const buildInvoicePreviewHtml = ({ company, booking, items, canSendEmail }) => {
   const invoiceNumber = buildInvoiceNumber(booking.id);
   const issueDate = new Date().toLocaleDateString("hu-HU");
-  const serviceName = booking.service || booking.description || "Munkafolyamat";
+  const serviceName = booking.service || booking.description || booking.service_name || "Munkafolyamat";
   const customerAddress = formatAddress(booking.user_address || "");
   const companyAddress = formatAddress(company.address || "");
-  const workPrice = Number(booking.work_price) || 0;
-  const materialPrice = Number(booking.material_price) || 0;
-  const totalPrice = workPrice + materialPrice;
+  const invoiceItems = toApiInvoiceItems(items);
+  const netTotalPrice = invoiceItems.reduce(
+    (sum, item) => sum + (Number(item.line_total) || 0),
+    0
+  );
+  const vatTotalPrice = calculateVatAmount(netTotalPrice);
+  const grossTotalPrice = calculateGrossAmount(netTotalPrice);
+  const itemRowsHtml = invoiceItems.length
+    ? invoiceItems
+        .map((item) => {
+          const lineNetTotal = Number(item.line_total) || 0;
+          const lineVatTotal = calculateVatAmount(lineNetTotal);
+          const lineGrossTotal = calculateGrossAmount(lineNetTotal);
+          return `
+                  <tr>
+                    <td>${escapeHtml(item.description)}</td>
+                    <td class="amount">${escapeHtml(String(item.quantity))}</td>
+                    <td class="amount">${escapeHtml(formatPrice(item.unit_price))}</td>
+                    <td class="amount">${escapeHtml(formatPrice(lineNetTotal))}</td>
+                    <td class="amount">${escapeHtml(formatPrice(lineVatTotal))}</td>
+                    <td class="amount">${escapeHtml(formatPrice(lineGrossTotal))}</td>
+                  </tr>
+                `
+        })
+        .join("")
+    : `
+                  <tr>
+                    <td colspan="6">Nincs tétel felvéve.</td>
+                  </tr>
+                `;
 
   return `
     <!doctype html>
@@ -81,9 +167,13 @@ const buildInvoicePreviewHtml = ({ company, booking }) => {
             background: #2563eb;
             color: #fff;
           }
+          #download-btn {
+            background: #059669;
+            color: #fff;
+          }
           #email-btn[disabled] {
             opacity: 0.7;
-            cursor: wait;
+            cursor: not-allowed;
           }
           .invoice {
             background: #fff;
@@ -213,7 +303,12 @@ const buildInvoicePreviewHtml = ({ company, booking }) => {
         <div class="container">
           <div class="actions">
             <button id="print-btn" type="button">Nyomtatás</button>
-            <button id="email-btn" type="button">Email küldés ügyfélnek</button>
+            <button id="download-btn" type="button">Letöltés</button>
+            <button id="email-btn" type="button"${
+              canSendEmail ? "" : " disabled"
+            }>${
+    canSendEmail ? "Email küldés ügyfélnek" : "Email küldés (mentés után)"
+  }</button>
           </div>
 
           <article class="invoice">
@@ -255,36 +350,35 @@ const buildInvoicePreviewHtml = ({ company, booking }) => {
               <table>
                 <thead>
                   <tr>
-                    <th>Szolgáltatás</th>
-                    <th>Foglalás időpontja</th>
-                    <th>Autó</th>
-                    <th class="amount">Munkadíj</th>
-                    <th class="amount">Anyagköltség</th>
+                    <th>Tétel</th>
+                    <th class="amount">Mennyiség</th>
+                    <th class="amount">Egységár (nettó)</th>
+                    <th class="amount">Nettó összesen</th>
+                    <th class="amount">ÁFA (27%)</th>
+                    <th class="amount">Bruttó összesen</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr>
-                    <td>${escapeHtml(serviceName)}</td>
-                    <td>${escapeHtml(`${booking.appointment_date || ""} ${booking.appointment_time || ""}`.trim())}</td>
-                    <td>${escapeHtml(`${booking.car_brand || ""} ${booking.car_model || ""}`.trim())}</td>
-                    <td class="amount">${escapeHtml(formatPrice(workPrice))}</td>
-                    <td class="amount">${escapeHtml(formatPrice(materialPrice))}</td>
-                  </tr>
+                  ${itemRowsHtml}
                 </tbody>
               </table>
 
               <div class="totals">
                 <div class="totals-row">
-                  <span>Munkadíj</span>
-                  <strong>${escapeHtml(formatPrice(workPrice))}</strong>
+                  <span>Szolgáltatás</span>
+                  <strong>${escapeHtml(serviceName)}</strong>
                 </div>
                 <div class="totals-row">
-                  <span>Anyagköltség</span>
-                  <strong>${escapeHtml(formatPrice(materialPrice))}</strong>
+                  <span>Nettó végösszeg</span>
+                  <strong>${escapeHtml(formatPrice(netTotalPrice))}</strong>
+                </div>
+                <div class="totals-row">
+                  <span>ÁFA (27%)</span>
+                  <strong>${escapeHtml(formatPrice(vatTotalPrice))}</strong>
                 </div>
                 <div class="totals-row grand">
-                  <span>Végösszeg</span>
-                  <strong>${escapeHtml(formatPrice(totalPrice))}</strong>
+                  <span>Bruttó végösszeg</span>
+                  <strong>${escapeHtml(formatPrice(grossTotalPrice))}</strong>
                 </div>
               </div>
             </section>
@@ -294,51 +388,6 @@ const buildInvoicePreviewHtml = ({ company, booking }) => {
             </p>
           </article>
         </div>
-
-        <script>
-          const workId = ${JSON.stringify(Number(booking.id) || 0)};
-          const emailApiUrl = ${JSON.stringify("http://localhost/vizsga/api/v1/admin/invoice-email.php")};
-
-          const printButton = document.getElementById("print-btn");
-          const emailButton = document.getElementById("email-btn");
-
-          printButton?.addEventListener("click", () => {
-            window.print();
-          });
-
-          emailButton?.addEventListener("click", async () => {
-            if (!workId) {
-              alert("Hiányzik a számla azonosító.");
-              return;
-            }
-
-            const originalText = emailButton.textContent;
-            emailButton.disabled = true;
-            emailButton.textContent = "Küldés...";
-
-            try {
-              const response = await fetch(emailApiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                credentials: "include",
-                body: JSON.stringify({ work_id: workId }),
-              });
-              const data = await response.json();
-
-              if (!data.success) {
-                alert(data.message || "Az email küldése sikertelen.");
-                return;
-              }
-
-              alert(data.message || "A számla email elküldve.");
-            } catch (error) {
-              alert("API hiba történt az email küldése közben.");
-            } finally {
-              emailButton.disabled = false;
-              emailButton.textContent = originalText;
-            }
-          });
-        </script>
       </body>
     </html>
   `;
@@ -383,10 +432,22 @@ export default function AdminDashboard() {
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("");
   const [companyData, setCompanyData] = useState(null);
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [invoiceLoading, setInvoiceLoading] = useState(false);
+  const [invoiceSaving, setInvoiceSaving] = useState(false);
+  const [invoiceTargetWork, setInvoiceTargetWork] = useState(null);
+  const [invoiceItems, setInvoiceItems] = useState([]);
+  const [savedInvoiceId, setSavedInvoiceId] = useState(null);
   const removeDiacritics = (value = "") =>
     value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const isInspectionBooking = (serviceName = "") =>
     removeDiacritics(serviceName).toLowerCase().includes("atvizsg");
+  const invoiceTotalPrice = toApiInvoiceItems(invoiceItems).reduce(
+    (sum, item) => sum + (Number(item.line_total) || 0),
+    0
+  );
+  const invoiceVatTotal = calculateVatAmount(invoiceTotalPrice);
+  const invoiceGrossTotal = calculateGrossAmount(invoiceTotalPrice);
   const normalizedBookingSearch = bookingSearchTerm.trim().toLowerCase();
   const filteredBookings = bookings.filter((b) => {
     if (!normalizedBookingSearch) return true;
@@ -399,7 +460,7 @@ export default function AdminDashboard() {
       return service.includes(normalizedBookingSearch);
     }
 
-    if (bookingSearchType === "day") {
+    if (bookingSearchType === "date") {
       return appointmentDate.includes(normalizedBookingSearch);
     }
 
@@ -422,23 +483,39 @@ export default function AdminDashboard() {
   const normalizedWorkSearch = workSearchTerm.trim().toLowerCase();
   const filteredWorks = works.filter((w) => {
     if (!normalizedWorkSearch) return true;
-
-    const description = (w.description || "").toLowerCase();
+    const customer = `${w.user_name || ""}`.toLowerCase();
+    const car = `${w.car_brand || ""} ${w.car_model || ""}`.toLowerCase();
     const appointmentDate = (w.appointment_date || "").toLowerCase();
-
-    if (workSearchType === "work") {
-      return description.includes(normalizedWorkSearch);
+    if (workSearchType === "name") {
+      return customer.includes(normalizedWorkSearch);
     }
 
-    if (workSearchType === "day") {
+    if (workSearchType === "car") {
+      return car.includes(normalizedWorkSearch);
+    }
+
+
+    if (workSearchType === "date") {
       return appointmentDate.includes(normalizedWorkSearch);
     }
 
     return (
-      description.includes(normalizedWorkSearch) ||
+      customer.includes(normalizedWorkSearch) ||
+      car.includes(normalizedWorkSearch) ||
       appointmentDate.includes(normalizedWorkSearch)
     );
   });
+
+  useEffect(() => {
+    if (!msg || msgType !== "success") return undefined;
+
+    const timeoutId = setTimeout(() => {
+      setMsg("");
+      setMsgType("");
+    }, 10000);
+
+    return () => clearTimeout(timeoutId);
+  }, [msg, msgType]);
 
 
   async function loadBookings() {
@@ -501,9 +578,151 @@ export default function AdminDashboard() {
     }
   };
 
-  const openInvoicePreview = (booking) => {
+  const resetInvoiceForm = () => {
+    setShowInvoiceForm(false);
+    setInvoiceLoading(false);
+    setInvoiceSaving(false);
+    setInvoiceTargetWork(null);
+    setInvoiceItems([]);
+    setSavedInvoiceId(null);
+  };
+
+  const openInvoiceEditor = async (work) => {
+    if (!work?.id) {
+      alert("Hiányzik a munkafolyamat azonosítója.");
+      return;
+    }
+
+    setShowInvoiceForm(true);
+    setInvoiceLoading(true);
+    setInvoiceTargetWork(work);
+    setSavedInvoiceId(null);
+    setInvoiceItems([]);
+
+    try {
+      const res = await fetch(apiUrl(`/admin/invoice.php?work_id=${work.id}`), {
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.message || "A számla betöltése sikertelen.");
+        resetInvoiceForm();
+        return;
+      }
+
+      const loadedWork = data.work || {};
+      setInvoiceTargetWork({
+        ...work,
+        ...loadedWork,
+      });
+      setSavedInvoiceId(data.invoice?.id || null);
+      const loadedItems = (data.items || []).map((item) => toLocalInvoiceItem(item));
+      setInvoiceItems(
+        loadedItems.length
+          ? loadedItems
+          : [
+              toLocalInvoiceItem({
+                description: loadedWork.service_name || work.service || work.description || "",
+                quantity: 1,
+                unit_price: 0,
+                is_fixed_price: 0,
+              }),
+            ]
+      );
+    } catch (err) {
+      console.error("Invoice load error:", err);
+      alert("API hiba történt a számla betöltése közben.");
+      const fallbackDescription = work.service || work.description || "Munkafolyamat";
+      const fallbackPrice =
+        clampPositiveInt(work.work_price, 0) + clampPositiveInt(work.material_price, 0);
+      setInvoiceItems([
+        toLocalInvoiceItem({
+          description: fallbackDescription,
+          quantity: 1,
+          unit_price: fallbackPrice,
+          is_fixed_price: 0,
+        }),
+      ]);
+    } finally {
+      setInvoiceLoading(false);
+    }
+  };
+
+  const updateInvoiceItem = (rowId, field, value) => {
+    setInvoiceItems((prev) =>
+      prev.map((item) => {
+        if (item.row_id !== rowId) return item;
+
+        if (field === "description") {
+          if (item.is_fixed_price) return item;
+          return { ...item, description: value };
+        }
+
+        if (field === "quantity") {
+          if (item.is_fixed_price) return item;
+          if (value === "") {
+            return {
+              ...item,
+              quantity: "",
+            };
+          }
+          return {
+            ...item,
+            quantity: Math.max(1, clampPositiveInt(value, item.quantity || 1)),
+          };
+        }
+
+        if (field === "unit_price") {
+          if (item.is_fixed_price) return item;
+          if (value === "") {
+            return {
+              ...item,
+              unit_price: "",
+            };
+          }
+          return {
+            ...item,
+            unit_price: clampPositiveInt(value, item.unit_price || 0),
+          };
+        }
+
+        return item;
+      })
+    );
+  };
+
+  const removeInvoiceItem = (rowId) => {
+    setInvoiceItems((prev) => prev.filter((item) => item.row_id !== rowId));
+  };
+
+  const addManualInvoiceItem = () => {
+    setInvoiceItems((prev) => [
+      ...prev,
+      {
+        row_id: createLocalInvoiceItemId(),
+        description: "",
+        quantity: 1,
+        unit_price: 0,
+        is_fixed_price: false,
+      },
+    ]);
+  };
+
+  const openInvoicePreviewWindow = () => {
     if (!companyData) {
       alert("A cégadatok még töltődnek, próbáld újra pár másodperc múlva.");
+      return;
+    }
+
+    if (!invoiceTargetWork) {
+      alert("Nincs kiválasztott munkafolyamat.");
+      return;
+    }
+
+    const preparedItems = toApiInvoiceItems(invoiceItems);
+    if (!preparedItems.length) {
+      alert("Legalább egy számlatétel szükséges az előnézethez.");
       return;
     }
 
@@ -515,12 +734,124 @@ export default function AdminDashboard() {
 
     const invoiceHtml = buildInvoicePreviewHtml({
       company: companyData,
-      booking,
+      booking: invoiceTargetWork,
+      items: preparedItems,
+      canSendEmail: Boolean(savedInvoiceId),
     });
 
     invoiceWindow.document.open();
     invoiceWindow.document.write(invoiceHtml);
     invoiceWindow.document.close();
+
+    const previewDocument = invoiceWindow.document;
+    const workId = Number(invoiceTargetWork.id) || 0;
+    const canSendEmail = Boolean(savedInvoiceId);
+    const emailApiUrl = "http://localhost/vizsga/api/v1/admin/invoice-email.php";
+    const printButton = previewDocument.getElementById("print-btn");
+    const downloadButton = previewDocument.getElementById("download-btn");
+    const emailButton = previewDocument.getElementById("email-btn");
+
+    printButton?.addEventListener("click", () => {
+      invoiceWindow.print();
+    });
+
+    downloadButton?.addEventListener("click", () => {
+      const fileName = `szamla-${String(workId || "ismeretlen")}.html`;
+      const invoiceDocument = "<!doctype html>\n" + previewDocument.documentElement.outerHTML;
+      const blob = new Blob([invoiceDocument], {
+        type: "text/html;charset=utf-8",
+      });
+      const url = URL.createObjectURL(blob);
+      const anchor = previewDocument.createElement("a");
+      anchor.href = url;
+      anchor.download = fileName;
+      previewDocument.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    emailButton?.addEventListener("click", async () => {
+      if (!canSendEmail) {
+        invoiceWindow.alert("Előbb mentsd el a számlát a Rendben gombbal.");
+        return;
+      }
+      if (!workId) {
+        invoiceWindow.alert("Hiányzik a számla azonosító.");
+        return;
+      }
+
+      const originalText = emailButton.textContent;
+      emailButton.disabled = true;
+      emailButton.textContent = "Küldés...";
+
+      try {
+        const response = await fetch(emailApiUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ work_id: workId }),
+        });
+        const data = await response.json();
+
+        if (!data.success) {
+          invoiceWindow.alert(data.message || "Az email küldése sikertelen.");
+          return;
+        }
+
+        invoiceWindow.alert(data.message || "A számla email elküldve.");
+      } catch (error) {
+        console.error("Invoice email error:", error);
+        invoiceWindow.alert("API hiba történt az email küldése közben.");
+      } finally {
+        emailButton.disabled = false;
+        emailButton.textContent = originalText;
+      }
+    });
+  };
+
+  const saveInvoice = async () => {
+    if (!invoiceTargetWork?.id) {
+      alert("Nincs kiválasztott munkafolyamat.");
+      return;
+    }
+
+    const preparedItems = toApiInvoiceItems(invoiceItems);
+    if (!preparedItems.length) {
+      alert("Legalább egy számlatétel megadása kötelező.");
+      return;
+    }
+
+    setInvoiceSaving(true);
+    try {
+      const res = await fetch(apiUrl("/admin/invoice.php"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          work_id: invoiceTargetWork.id,
+          items: preparedItems,
+        }),
+      });
+      const data = await res.json();
+
+      if (!data.success) {
+        alert(data.message || "A számla mentése sikertelen.");
+        return;
+      }
+
+      setSavedInvoiceId(data.invoice_id || null);
+      setInvoiceItems((data.items || preparedItems).map((item) => toLocalInvoiceItem(item)));
+      setMsg(data.message || "A számla mentése sikeres.");
+      setMsgType("success");
+      await Promise.all([loadBookings(), loadWorks()]);
+      resetInvoiceForm();
+    } catch (err) {
+      console.error("Invoice save error:", err);
+      alert("API hiba történt a számla mentése közben.");
+    } finally {
+      setInvoiceSaving(false);
+    }
   };
 
 
@@ -574,6 +905,18 @@ export default function AdminDashboard() {
 
     if (!workDescription || !workDate || !workTime) {
       alert("Minden mező kötelező");
+      return;
+    }
+
+    const selectedDateTime = new Date(`${workDate}T${workTime}`);
+    const now = new Date();
+    if (Number.isNaN(selectedDateTime.getTime())) {
+      alert("Érvénytelen dátum vagy időpont.");
+      return;
+    }
+
+    if (selectedDateTime < now) {
+      alert("Korábbi időpontra nem lehet foglalni.");
       return;
     }
 
@@ -645,6 +988,13 @@ export default function AdminDashboard() {
         <div className="flex gap-2 self-start sm:self-auto">
           <button
             type="button"
+            onClick={() => navigate("/admin/auto-eloelet")}
+            className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm sm:text-base"
+          >
+            Autó előélet
+          </button>
+          <button
+            type="button"
             onClick={() => navigate("/admin/profil")}
             className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm sm:text-base"
           >
@@ -696,7 +1046,7 @@ export default function AdminDashboard() {
             >
               <option value="all">Mindenben keres</option>
               <option value="service">Szolgáltatások között</option>
-              <option value="day">Napok között</option>
+              <option value="date">Dátum szerint</option>
               <option value="customer">Ügyfelek között</option>
             </select>
             <input
@@ -706,7 +1056,7 @@ export default function AdminDashboard() {
                 setBookingSearchTerm(e.target.value);
                 setBookingsPage(1);
               }}
-              placeholder="Keresés szolgáltatásra, napra vagy ügyfélre..."
+              placeholder="Keresés szolgáltatásra, dátumra vagy ügyfélre..."
               className="flex-1 bg-black border border-gray-700 rounded px-3 py-2"
             />
           </div>
@@ -747,7 +1097,7 @@ export default function AdminDashboard() {
                         Kész
                       </button>
                       <button
-                        onClick={() => openInvoicePreview(b)}
+                        onClick={() => openInvoiceEditor(b)}
                         className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm"
                       >
                         🧾
@@ -820,7 +1170,7 @@ export default function AdminDashboard() {
                               Kész
                             </button>
                             <button
-                              onClick={() => openInvoicePreview(b)}
+                              onClick={() => openInvoiceEditor(b)}
                               className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded"
                             >
                               🧾
@@ -877,14 +1227,15 @@ export default function AdminDashboard() {
               className="bg-black border border-gray-700 rounded px-3 py-2"
             >
               <option value="all">Mindenben keres</option>
-              <option value="work">Munkák között</option>
-              <option value="day">Napok között</option>
+              <option value="name">Név szerint</option>
+              <option value="car">Autó szerint</option>
+              <option value="date">Dátum szerint</option>
             </select>
             <input
               type="text"
               value={workSearchTerm}
               onChange={(e) => setWorkSearchTerm(e.target.value)}
-              placeholder="Keresés munkára vagy napra..."
+              placeholder="Keresés névre, autóra vagy dátumra..."
               className="flex-1 bg-black border border-gray-700 rounded px-3 py-2"
             />
           </div>
@@ -917,7 +1268,7 @@ export default function AdminDashboard() {
                         Kész
                       </button>
                       <button
-                        onClick={() => openInvoicePreview(w)}
+                        onClick={() => openInvoiceEditor(w)}
                         className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm"
                       >
                         🧾
@@ -979,7 +1330,7 @@ export default function AdminDashboard() {
                               Kész
                             </button>
                             <button
-                              onClick={() => openInvoicePreview(w)}
+                              onClick={() => openInvoiceEditor(w)}
                               className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded"
                             >
                               🧾
@@ -996,6 +1347,164 @@ export default function AdminDashboard() {
         </>
       )}
 
+      {showInvoiceForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50 p-2">
+          <div className="bg-gray-900 p-4 sm:p-6 rounded w-full max-w-5xl max-h-[95vh] overflow-y-auto border border-gray-700">
+            <h3 className="text-xl sm:text-2xl font-bold mb-2 text-red-600">
+              Számla összeállítása
+            </h3>
+            {invoiceTargetWork && (
+              <p className="text-sm text-gray-300 mb-4 break-words">
+                {invoiceTargetWork.user_name || "Ügyfél"} •{" "}
+                {invoiceTargetWork.car_brand || ""}{" "}
+                {invoiceTargetWork.car_model || ""} •{" "}
+                {invoiceTargetWork.appointment_date || ""}{" "}
+                {invoiceTargetWork.appointment_time || ""}
+              </p>
+            )}
+
+            {invoiceLoading ? (
+              <p className="text-center py-8">Számla betöltése...</p>
+            ) : (
+              <>
+                <div className="overflow-x-auto border border-gray-700 rounded">
+                  <table className="w-full min-w-[720px] text-left">
+                    <thead className="bg-gray-800">
+                      <tr>
+                        <th className="p-2">Tétel</th>
+                        <th className="p-2 w-28">Mennyiség</th>
+                        <th className="p-2 w-40">Egységár (Ft)</th>
+                        <th className="p-2 w-40 text-right">Összesen</th>
+                        <th className="p-2 w-36 text-center">Művelet</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoiceItems.map((item) => (
+                        <tr key={item.row_id} className="border-t border-gray-700">
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              value={item.description}
+                              disabled={item.is_fixed_price}
+                              onChange={(e) =>
+                                updateInvoiceItem(item.row_id, "description", e.target.value)
+                              }
+                              placeholder="Pl.: Munkadíj, alkatrész..."
+                              className="w-full bg-black border border-gray-700 rounded px-2 py-1 disabled:opacity-60"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              min="1"
+                              value={item.quantity}
+                              disabled={item.is_fixed_price}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) =>
+                                updateInvoiceItem(item.row_id, "quantity", e.target.value)
+                              }
+                              onBlur={() => {
+                                if (item.quantity === "") {
+                                  updateInvoiceItem(item.row_id, "quantity", "1");
+                                }
+                              }}
+                              className="w-full bg-black border border-gray-700 rounded px-2 py-1 disabled:opacity-60"
+                            />
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={item.unit_price}
+                              disabled={item.is_fixed_price}
+                              onFocus={(e) => e.target.select()}
+                              onChange={(e) =>
+                                updateInvoiceItem(item.row_id, "unit_price", e.target.value)
+                              }
+                              onBlur={() => {
+                                if (item.unit_price === "") {
+                                  updateInvoiceItem(item.row_id, "unit_price", "0");
+                                }
+                              }}
+                              className="w-full bg-black border border-gray-700 rounded px-2 py-1 disabled:opacity-60"
+                            />
+                          </td>
+                          <td className="p-2 text-right font-semibold">
+                            {formatPrice(calculateInvoiceLineTotal(item))}
+                          </td>
+                          <td className="p-2 text-center">
+                            {item.is_fixed_price ? (
+                              <span className="text-xs bg-yellow-700 px-2 py-1 rounded">
+                                Fix ár
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => removeInvoiceItem(item.row_id)}
+                                className="text-xs bg-red-700 hover:bg-red-800 px-2 py-1 rounded"
+                              >
+                                Törlés
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={addManualInvoiceItem}
+                    className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded self-start"
+                  >
+                    + Kézi tétel hozzáadása
+                  </button>
+                  <div className="text-sm sm:text-right space-y-1">
+                    <p className="font-semibold">
+                      Nettó: <span className="text-red-400">{formatPrice(invoiceTotalPrice)}</span>
+                    </p>
+                    <p className="font-semibold">
+                      ÁFA (27%): <span className="text-red-400">{formatPrice(invoiceVatTotal)}</span>
+                    </p>
+                    <p className="text-lg font-bold">
+                      Bruttó: <span className="text-red-500">{formatPrice(invoiceGrossTotal)}</span>
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="flex flex-col sm:flex-row sm:justify-end gap-3 mt-6">
+              <button
+                type="button"
+                onClick={resetInvoiceForm}
+                className="px-4 py-2 bg-gray-700 rounded w-full sm:w-auto"
+              >
+                Mégse
+              </button>
+              <button
+                type="button"
+                onClick={openInvoicePreviewWindow}
+                disabled={invoiceLoading || invoiceSaving}
+                className="px-4 py-2 bg-blue-700 hover:bg-blue-800 rounded w-full sm:w-auto disabled:opacity-60"
+              >
+                Előnézet
+              </button>
+              <button
+                type="button"
+                onClick={saveInvoice}
+                disabled={invoiceLoading || invoiceSaving}
+                className="px-4 py-2 bg-green-700 hover:bg-green-800 rounded w-full sm:w-auto disabled:opacity-60"
+              >
+                {invoiceSaving ? "Mentés..." : "Rendben"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showWorkForm && selectedBooking && (
         <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-50">
@@ -1019,6 +1528,7 @@ export default function AdminDashboard() {
             <input
               type="date"
               value={workDate}
+              min={new Date().toISOString().split("T")[0]}
               max="2030-12-31"
               onChange={e => setWorkDate(e.target.value)}
               className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
@@ -1081,3 +1591,5 @@ export default function AdminDashboard() {
     </div>
   );
 }
+
+

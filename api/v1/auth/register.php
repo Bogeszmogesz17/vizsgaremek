@@ -22,7 +22,7 @@ if ($name === "" || $email === "" || $password === "" || $phoneNumber === "" || 
 if ($termsAccepted !== true) {
     jsonResponse([
         "success" => false,
-        "message" => "A regisztrációhoz kötelező elfogadni az ÁFSZ-t"
+        "message" => "A regisztrációhoz kötelező elfogadni az ÁSZF-et"
     ], 400);
 }
 

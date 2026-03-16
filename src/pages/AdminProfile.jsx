@@ -185,6 +185,13 @@ export default function AdminProfile() {
           </button>
           <button
             type="button"
+            onClick={() => navigate("/admin/auto-eloelet")}
+            className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm sm:text-base"
+          >
+            Autó előélet
+          </button>
+          <button
+            type="button"
             onClick={logout}
             className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded text-sm sm:text-base"
           >

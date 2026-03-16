@@ -41,8 +41,22 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 mt-10 pt-6 border-t border-gray-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-500">
         <p>&copy; 2026 Autószerviz Pro. Minden jog fenntartva.</p>
         <div className="flex gap-6">
-          <span className="hover:text-gray-300 cursor-pointer">Adatkezelési tájékoztató</span>
-          <span className="hover:text-gray-300 cursor-pointer">ÁSZF</span>
+          <a
+            href="/adatkezelesi-tajekoztato.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-300 transition"
+          >
+            Adatkezelési tájékoztató
+          </a>
+          <a
+            href="/aszf.html"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:text-gray-300 transition"
+          >
+            ÁSZF
+          </a>
         </div>
       </div>
     </footer>
