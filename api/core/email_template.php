@@ -17,7 +17,7 @@ if (!function_exists("renderWorkshopEmail")) {
         if ($safeRecipientName !== "") {
             $greetingHtml = '
                 <p style="margin:0 0 12px 0;color:#d1d5db;font-size:16px;line-height:1.6;">
-                    Szia <strong style="color:#ffffff;">' . emailEscape($safeRecipientName) . '</strong>!
+                    Tisztelt <strong style=\"color:#ffffff;\">' . emailEscape($safeRecipientName) . '</strong>!
                 </p>
             ';
         }

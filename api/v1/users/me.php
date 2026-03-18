@@ -45,8 +45,9 @@ $name = trim((string)($data["name"] ?? ""));
 $email = strtolower(trim((string)($data["email"] ?? "")));
 $phoneNumber = trim((string)($data["phone_number"] ?? ""));
 $address = trim((string)($data["address"] ?? ""));
+$settlementId = $data["settlement_id"] ?? null;
 
-if ($name === "" || $email === "" || $phoneNumber === "" || $address === "") {
+if ($name === "" || $email === "" || $phoneNumber === "" || $address === "" || empty($settlementId)) {
     jsonResponse([
         "success" => false,
         "message" => "Hiányzó adatok"
@@ -59,13 +60,14 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         "message" => "Érvénytelen email cím"
     ], 400);
 }
+$settlementId = requirePositiveInt($settlementId, "Érvénytelen település");
 
 $updateStatement = $pdo->prepare("
     UPDATE users
-    SET name = ?, email = ?, phone_number = ?, address = ?
+    SET name = ?, email = ?, phone_number = ?, settlement_id = ?, address = ?
     WHERE id = ?
 ");
-$updateStatement->execute([$name, $email, $phoneNumber, $address, $accountId]);
+$updateStatement->execute([$name, $email, $phoneNumber, $settlementId, $address, $accountId]);
 
 if ($role === "user") {
     $_SESSION["name"] = $name;

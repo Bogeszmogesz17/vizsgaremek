@@ -20,7 +20,7 @@ export default function Footer() {
         </div>
 
         <div className="flex flex-col space-y-2">
-          <h4 className="text-white font-semibold mb-2">Gyorslinkek</h4>
+          <h4 className="text-white font-semibold mb-2">Oldalak</h4>
           <Link to="/" className="text-gray-400 hover:text-red-500 transition text-sm w-fit">Főoldal</Link>
           <Link to="/szolgaltatasok" className="text-gray-400 hover:text-red-500 transition text-sm w-fit">Szolgáltatások</Link>
           <Link to="/idopont" className="text-gray-400 hover:text-red-500 transition text-sm w-fit">Időpontfoglalás</Link>

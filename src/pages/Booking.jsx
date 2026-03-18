@@ -83,7 +83,7 @@ export default function Booking() {
   }, [carBrand]);
 
   useEffect(() => {
-    fetch(apiUrl("/catalog/services.php?bookable=1"), {
+    fetch(apiUrl("/catalog/services.php?bookable=1&base_only=1"), {
       credentials: "include"
     })
       .then(res => res.json())

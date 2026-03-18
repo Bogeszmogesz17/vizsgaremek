@@ -39,7 +39,10 @@ $statement = $pdo->prepare("
         wp.appointment_time,
         wp.work_price,
         wp.material_price,
-        COALESCE(GROUP_CONCAT(DISTINCT s.name SEPARATOR ', '), 'Munkafolyamat') AS service_name,
+        COALESCE(
+            NULLIF(TRIM(wp.additional_work_description), ''),
+            COALESCE(GROUP_CONCAT(DISTINCT s.name SEPARATOR ', '), 'Munkafolyamat')
+        ) AS service_name,
         u.name AS user_name,
         u.email AS user_email,
         u.phone_number,
@@ -61,6 +64,7 @@ $statement = $pdo->prepare("
         wp.appointment_time,
         wp.work_price,
         wp.material_price,
+        wp.additional_work_description,
         u.name,
         u.email,
         u.phone_number,

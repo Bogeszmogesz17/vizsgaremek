@@ -89,24 +89,24 @@ try {
     $serviceStmt = $pdo->prepare("
         SELECT id
         FROM services
-        WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
-          AND is_bookable = 0
+        WHERE id <= 6
+          AND COALESCE(is_bookable, 1) = 0
+        ORDER BY id ASC
         LIMIT 1
     ");
-    $serviceStmt->execute([$service_name]);
+    $serviceStmt->execute();
     $service_id = $serviceStmt->fetchColumn();
 
 
-    $pdo->beginTransaction();
-
     if (!$service_id) {
-        $newService = $pdo->prepare("
-            INSERT INTO services (name, price, type, is_bookable)
-            VALUES (?, 0, 0, 0)
-        ");
-        $newService->execute([$service_name]);
-        $service_id = $pdo->lastInsertId();
+        echo json_encode([
+            "success" => false,
+            "message" => "Nem található alap (nem foglalható) szolgáltatás a további munkákhoz"
+        ]);
+        exit;
     }
+
+    $pdo->beginTransaction();
 
     $insert = $pdo->prepare("
         INSERT INTO work_process (
@@ -118,14 +118,16 @@ try {
             work_price,
             material_price,
             method_id,
-            invoices_id
-        ) VALUES (?, ?, ?, 0, NOW(), 0, 0, NULL, NULL)
+            invoices_id,
+            additional_work_description
+        ) VALUES (?, ?, ?, 0, NOW(), 0, 0, NULL, NULL, ?)
     ");
 
     $insert->execute([
         $work["vehicle_id"],
         $date,
-        $time
+        $time,
+        $service_name
     ]);
 
     $new_work_process_id = $pdo->lastInsertId();

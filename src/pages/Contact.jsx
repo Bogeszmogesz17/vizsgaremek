@@ -18,7 +18,7 @@ export default function Contact() {
 
         <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
           <h3 className="text-xl font-semibold text-white">
-            Balla Kristóf
+            Lőcse Dávid
           </h3>
 
           <p className="text-gray-400 mt-2">
@@ -42,7 +42,33 @@ export default function Contact() {
           </p>
         </div>
 
-        
+
+        <div className="bg-gray-900 p-6 rounded-lg border border-gray-800">
+          <h3 className="text-xl font-semibold text-white">
+            Balla Kristóf
+          </h3>
+
+          <p className="text-gray-400 mt-2">
+            Telefonszám:{" "}
+            <a
+              href="tel:+36204269789"
+              className="text-gray-300 hover:text-red-500 transition"
+            >
+              +36 20 426 9789
+            </a>
+          </p>
+
+          <p className="text-gray-400">
+            E-mail:{" "}
+            <a
+              href="mailto:ballabk02@gmail.com"
+              className="text-gray-300 hover:text-red-500 transition"
+            >
+              ballabk02@gmail.com
+            </a>
+          </p>
+        </div>
+
       </section>
 
       <section className="bg-gray-900 p-6 rounded-lg border border-gray-800">

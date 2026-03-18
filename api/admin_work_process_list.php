@@ -11,7 +11,7 @@ try {
             wp.appointment_time,
             wp.work_price,
             wp.material_price,
-            COALESCE(s.name, '') AS description,
+            COALESCE(NULLIF(TRIM(wp.additional_work_description), ''), COALESCE(s.name, '')) AS description,
             u.name AS user_name,
             u.email AS user_email,
             u.phone_number,
@@ -27,7 +27,8 @@ try {
         JOIN model m ON v.model_id = m.id
         JOIN brand b ON m.brand_id = b.id
         WHERE (wp.status = 0 OR wp.status IS NULL)
-          AND s.is_bookable = 0
+          AND s.id <= 6
+          AND COALESCE(s.is_bookable, 1) = 0
         ORDER BY wp.appointment_date ASC, wp.appointment_time ASC
     ");
 

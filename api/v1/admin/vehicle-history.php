@@ -14,8 +14,11 @@ $sql = "
         wp.work_price,
         wp.material_price,
         COALESCE(
-            GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', '),
-            'Nincs rögzített szolgáltatás'
+            NULLIF(TRIM(wp.additional_work_description), ''),
+            COALESCE(
+                GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', '),
+                'Nincs rögzített szolgáltatás'
+            )
         ) AS services,
         u.id AS user_id,
         u.name AS user_name,
@@ -60,6 +63,7 @@ $sql .= "
         wp.status,
         wp.work_price,
         wp.material_price,
+        wp.additional_work_description,
         u.id,
         u.name,
         u.email,

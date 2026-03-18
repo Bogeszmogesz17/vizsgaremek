@@ -28,6 +28,9 @@ export default function AdminProfile() {
     name: "",
     email: "",
     phone_number: "",
+    post_code: "",
+    settlement_name: "",
+    settlement_id: "",
     address: "",
   });
 
@@ -47,6 +50,9 @@ export default function AdminProfile() {
         name: data.user.name || "",
         email: data.user.email || "",
         phone_number: data.user.phone_number || "",
+        post_code: data.user.post_code || "",
+        settlement_name: data.user.settlement_name || "",
+        settlement_id: data.user.settlement_id ? String(data.user.settlement_id) : "",
         address: data.user.address || "",
       });
     } catch (err) {
@@ -62,6 +68,7 @@ export default function AdminProfile() {
       !adminProfile.name ||
       !adminProfile.email ||
       !adminProfile.phone_number ||
+      !adminProfile.settlement_id ||
       !adminProfile.address
     ) {
       setMsg("Minden mező kitöltése kötelező");
@@ -145,6 +152,40 @@ export default function AdminProfile() {
   };
 
   useEffect(() => {
+    if (adminProfile.post_code.length !== 4) {
+      return;
+    }
+
+    fetch(apiUrl(`/catalog/settlements.php?post_code=${adminProfile.post_code}`), {
+      credentials: "include",
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.success) {
+          setAdminProfile((prev) => ({
+            ...prev,
+            settlement_name: "",
+            settlement_id: "",
+          }));
+          return;
+        }
+
+        setAdminProfile((prev) => ({
+          ...prev,
+          settlement_name: data.settlement.settlement_name,
+          settlement_id: String(data.settlement.id),
+        }));
+      })
+      .catch(() => {
+        setAdminProfile((prev) => ({
+          ...prev,
+          settlement_name: "",
+          settlement_id: "",
+        }));
+      });
+  }, [adminProfile.post_code]);
+
+  useEffect(() => {
     const checkAdmin = async () => {
       try {
         const res = await fetch(apiUrl("/admin/session.php"), {
@@ -174,14 +215,14 @@ export default function AdminProfile() {
   return (
     <div className="max-w-2xl mx-auto mt-6 sm:mt-10 text-white">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-red-600">Admin profil</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-red-600">Szerelő profil</h1>
         <div className="flex gap-2 self-start sm:self-auto">
           <button
             type="button"
             onClick={() => navigate("/admin")}
             className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded text-sm sm:text-base"
           >
-            Vissza az admin felületre
+            Vissza a szerelő felületre
           </button>
           <button
             type="button"
@@ -220,6 +261,28 @@ export default function AdminProfile() {
           onChange={(e) => setAdminProfile((prev) => ({ ...prev, phone_number: e.target.value }))}
           className="w-full mb-3 p-3 bg-black rounded"
           placeholder="Telefonszám"
+        />
+
+        <input
+          value={adminProfile.post_code}
+          onChange={(e) => {
+            const nextPostalCode = e.target.value;
+            setAdminProfile((prev) => ({
+              ...prev,
+              post_code: nextPostalCode,
+              settlement_name: nextPostalCode.length === 4 ? prev.settlement_name : "",
+              settlement_id: nextPostalCode.length === 4 ? prev.settlement_id : "",
+            }));
+          }}
+          className="w-full mb-3 p-3 bg-black rounded"
+          placeholder="Irányítószám"
+        />
+
+        <input
+          value={adminProfile.settlement_name}
+          disabled
+          className="w-full mb-3 p-3 bg-gray-800 rounded text-gray-400"
+          placeholder="Település"
         />
 
         <input

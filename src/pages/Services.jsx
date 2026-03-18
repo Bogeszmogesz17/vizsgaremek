@@ -6,7 +6,7 @@ export default function Services() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(apiUrl("/catalog/services.php"), {
+    fetch(apiUrl("/catalog/services.php?base_only=1"), {
       credentials: "include",
     })
       .then(res => res.json())

@@ -15,6 +15,9 @@ export default function Account() {
   const [editName, setEditName] = useState("");
   const [editEmail, setEditEmail] = useState("");
   const [editPhone, setEditPhone] = useState("");
+  const [editPostalCode, setEditPostalCode] = useState("");
+  const [editSettlementName, setEditSettlementName] = useState("");
+  const [editSettlementId, setEditSettlementId] = useState("");
   const [editAddress, setEditAddress] = useState("");
 
   const [confirmCancelId, setConfirmCancelId] = useState(null);
@@ -45,6 +48,9 @@ export default function Account() {
         setEditName(data.user.name || "");
         setEditEmail(data.user.email || "");
         setEditPhone(data.user.phone_number || "");
+        setEditPostalCode(data.user.post_code || "");
+        setEditSettlementName(data.user.settlement_name || "");
+        setEditSettlementId(data.user.settlement_id ? String(data.user.settlement_id) : "");
         setEditAddress(data.user.address || "");
 
         setLoading(false);
@@ -53,6 +59,29 @@ export default function Account() {
       .catch(() => navigate("/login"));
 
   }, [navigate]);
+
+  useEffect(() => {
+    if (editPostalCode.length !== 4) {
+      return;
+    }
+
+    fetch(apiUrl(`/catalog/settlements.php?post_code=${editPostalCode}`))
+      .then(res => res.json())
+      .then(data => {
+        if (!data.success) {
+          setEditSettlementName("");
+          setEditSettlementId("");
+          return;
+        }
+
+        setEditSettlementName(data.settlement.settlement_name);
+        setEditSettlementId(String(data.settlement.id));
+      })
+      .catch(() => {
+        setEditSettlementName("");
+        setEditSettlementId("");
+      });
+  }, [editPostalCode]);
 
   useEffect(() => {
 
@@ -106,6 +135,7 @@ export default function Account() {
             name: editName,
             email: editEmail,
             phone_number: editPhone,
+            settlement_id: editSettlementId,
             address: editAddress
           })
         }
@@ -124,6 +154,9 @@ export default function Account() {
         name: editName,
         email: editEmail,
         phone_number: editPhone,
+        post_code: editPostalCode,
+        settlement_name: editSettlementName,
+        settlement_id: editSettlementId,
         address: editAddress
       });
 
@@ -212,6 +245,8 @@ Profil adatok
 <p><strong>Név:</strong> {user.name}</p>
 <p><strong>Email:</strong> {user.email}</p>
 <p><strong>Telefon:</strong> {user.phone_number}</p>
+<p><strong>Irányítószám:</strong> {user.post_code}</p>
+<p><strong>Település:</strong> {user.settlement_name}</p>
 <p><strong>Lakcím:</strong> {user.address}</p>
 
 <button
@@ -291,6 +326,27 @@ value={editPhone}
 onChange={(e) => setEditPhone(e.target.value)}
 className="w-full mb-3 p-3 bg-black rounded"
 placeholder="Telefonszám"
+/>
+
+<input
+value={editPostalCode}
+onChange={(e) => {
+  const nextPostalCode = e.target.value;
+  setEditPostalCode(nextPostalCode);
+  if (nextPostalCode.length !== 4) {
+    setEditSettlementName("");
+    setEditSettlementId("");
+  }
+}}
+className="w-full mb-3 p-3 bg-black rounded"
+placeholder="Irányítószám"
+/>
+
+<input
+value={editSettlementName}
+disabled
+className="w-full mb-3 p-3 bg-gray-800 rounded text-gray-400"
+placeholder="Település"
 />
 
 <input

@@ -1090,12 +1090,14 @@ export default function AdminDashboard() {
                           További időpont
                         </button>
                       )}
-                      <button
-                        onClick={() => finishWork(b.id)}
-                        className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm"
-                      >
-                        Kész
-                      </button>
+                      {!isInspectionBooking(b.service) && (
+                        <button
+                          onClick={() => finishWork(b.id)}
+                          className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm"
+                        >
+                          Kész
+                        </button>
+                      )}
                       <button
                         onClick={() => openInvoiceEditor(b)}
                         className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded text-sm"
@@ -1163,12 +1165,14 @@ export default function AdminDashboard() {
                                 További időpont
                               </button>
                             )}
-                            <button
-                              onClick={() => finishWork(b.id)}
-                              className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded"
-                            >
-                              Kész
-                            </button>
+                            {!isInspectionBooking(b.service) && (
+                              <button
+                                onClick={() => finishWork(b.id)}
+                                className="bg-green-600 hover:bg-green-700 px-3 py-1 rounded"
+                              >
+                                Kész
+                              </button>
+                            )}
                             <button
                               onClick={() => openInvoiceEditor(b)}
                               className="bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded"

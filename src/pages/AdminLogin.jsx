@@ -47,13 +47,13 @@ export default function AdminLogin() {
   return (
     <div className="max-w-md mx-auto bg-gray-900 p-8 rounded text-white mt-20">
       <h1 className="text-3xl font-bold text-red-600 text-center mb-6">
-        Admin bejelentkezés
+        Szerelő bejelentkezés
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
           type="text"
-          placeholder="Admin email címe"
+          placeholder="Szerelő email címe"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full p-3 bg-black rounded border border-gray-700"

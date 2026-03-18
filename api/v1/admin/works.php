@@ -11,6 +11,27 @@ require_once __DIR__ . "/../../phpmailer/src/SMTP.php";
 
 $method = requireMethod(["GET", "POST"]);
 requireAdminSession();
+function getBaseAdditionalWorkServiceId(PDO $pdo): int
+{
+    $statement = $pdo->query("
+        SELECT id
+        FROM services
+        WHERE id <= 6
+          AND COALESCE(is_bookable, 1) = 0
+        ORDER BY id ASC
+        LIMIT 1
+    ");
+    $serviceId = (int)$statement->fetchColumn();
+
+    if ($serviceId <= 0) {
+        jsonResponse([
+            "success" => false,
+            "message" => "Nem található alap (nem foglalható) szolgáltatás a további munkákhoz"
+        ], 500);
+    }
+
+    return $serviceId;
+}
 
 if ($method === "GET") {
     $statement = $pdo->query("
@@ -20,7 +41,7 @@ if ($method === "GET") {
             wp.appointment_time,
             wp.work_price,
             wp.material_price,
-            COALESCE(s.name, '') AS description,
+            COALESCE(NULLIF(TRIM(wp.additional_work_description), ''), COALESCE(s.name, '')) AS description,
             u.name AS user_name,
             u.email AS user_email,
             u.phone_number,
@@ -36,7 +57,8 @@ if ($method === "GET") {
         JOIN model m ON v.model_id = m.id
         JOIN brand b ON m.brand_id = b.id
         WHERE (wp.status = 0 OR wp.status IS NULL)
-          AND s.is_bookable = 0
+          AND s.id <= 6
+          AND COALESCE(s.is_bookable, 1) = 0
         ORDER BY wp.appointment_date ASC, wp.appointment_time ASC
     ");
 
@@ -133,27 +155,9 @@ try {
             "message" => "Ez az időpont már foglalt"
         ], 409);
     }
-
-    $serviceSearchStatement = $pdo->prepare("
-        SELECT id
-        FROM services
-        WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))
-          AND is_bookable = 0
-        LIMIT 1
-    ");
-    $serviceSearchStatement->execute([$serviceName]);
-    $serviceId = $serviceSearchStatement->fetchColumn();
+    $serviceId = getBaseAdditionalWorkServiceId($pdo);
 
     $pdo->beginTransaction();
-
-    if (!$serviceId) {
-        $serviceInsertStatement = $pdo->prepare("
-            INSERT INTO services (name, price, type, is_bookable)
-            VALUES (?, 0, 0, 0)
-        ");
-        $serviceInsertStatement->execute([$serviceName]);
-        $serviceId = $pdo->lastInsertId();
-    }
 
     $workProcessInsertStatement = $pdo->prepare("
         INSERT INTO work_process (
@@ -165,10 +169,11 @@ try {
             work_price,
             material_price,
             method_id,
-            invoices_id
-        ) VALUES (?, ?, ?, 0, NOW(), 0, 0, NULL, NULL)
+            invoices_id,
+            additional_work_description
+        ) VALUES (?, ?, ?, 0, NOW(), 0, 0, NULL, NULL, ?)
     ");
-    $workProcessInsertStatement->execute([$work["vehicle_id"], $date, $time]);
+    $workProcessInsertStatement->execute([$work["vehicle_id"], $date, $time, $serviceName]);
     $newWorkProcessId = $pdo->lastInsertId();
 
     $serviceLinkStatement = $pdo->prepare("

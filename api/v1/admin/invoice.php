@@ -55,7 +55,10 @@ function loadInvoiceContext(PDO $pdo, int $workId): array
             wp.work_price,
             wp.material_price,
             wp.invoices_id,
-            COALESCE(GROUP_CONCAT(DISTINCT s.name SEPARATOR ', '), 'Munkafolyamat') AS service_name,
+            COALESCE(
+                NULLIF(TRIM(wp.additional_work_description), ''),
+                COALESCE(GROUP_CONCAT(DISTINCT s.name SEPARATOR ', '), 'Munkafolyamat')
+            ) AS service_name,
             u.name AS user_name,
             u.email AS user_email,
             u.phone_number,
@@ -78,6 +81,7 @@ function loadInvoiceContext(PDO $pdo, int $workId): array
             wp.work_price,
             wp.material_price,
             wp.invoices_id,
+            wp.additional_work_description,
             u.name,
             u.email,
             u.phone_number,
@@ -132,6 +136,23 @@ function loadInvoiceRow(PDO $pdo, array $context): ?array
 
 function loadDefaultItemsForWork(PDO $pdo, int $workId): array
 {
+    $customDescriptionStatement = $pdo->prepare("
+        SELECT TRIM(COALESCE(additional_work_description, '')) AS additional_work_description
+        FROM work_process
+        WHERE id = ?
+        LIMIT 1
+    ");
+    $customDescriptionStatement->execute([$workId]);
+    $customDescription = trim((string)$customDescriptionStatement->fetchColumn());
+    if ($customDescription !== "") {
+        return [[
+            "description" => $customDescription,
+            "quantity" => 1,
+            "unit_price" => 0,
+            "line_total" => 0,
+            "is_fixed_price" => 0
+        ]];
+    }
     $statement = $pdo->prepare("
         SELECT s.name, COALESCE(s.price, 0) AS price
         FROM work_process_services wps
