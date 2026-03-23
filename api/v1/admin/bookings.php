@@ -10,7 +10,7 @@ $statement = $pdo->query("
         wp.appointment_date,
         wp.appointment_time,
         wp.work_price,
-        wp.material_price,
+        0 AS material_price,
         s.name AS service,
         u.name AS user_name,
         u.email AS user_email,
@@ -20,8 +20,7 @@ $statement = $pdo->query("
         b.brand_name AS car_brand,
         ft.fuel_name AS fuel_type
     FROM work_process wp
-    JOIN work_process_services wps ON wp.id = wps.work_process_id
-    JOIN services s ON wps.service_id = s.id
+    JOIN services s ON s.id = wp.service_id
     JOIN vehicles v ON wp.vehicle_id = v.id
     JOIN users u ON v.user_id = u.id
     LEFT JOIN settlement st ON st.id = u.settlement_id

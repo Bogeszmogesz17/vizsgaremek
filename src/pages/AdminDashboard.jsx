@@ -30,6 +30,16 @@ const buildInvoiceNumber = (workId) =>
 
 const createLocalInvoiceItemId = () =>
   `${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+const LABOR_ITEM_DESCRIPTION = "Munkadíj";
+const normalizeText = (value = "") =>
+  String(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+const isLaborInvoiceItem = (item = {}) =>
+  normalizeText(item.item_type) === "labor" ||
+  normalizeText(item.description) === normalizeText(LABOR_ITEM_DESCRIPTION);
 
 const clampPositiveInt = (value, fallback = 0) => {
   const parsed = Number.parseInt(value, 10);
@@ -54,16 +64,16 @@ const calculateVatAmount = (netValue = 0) => {
 const calculateGrossAmount = (netValue = 0) =>
   Math.max(0, Math.round(Number(netValue) || 0)) + calculateVatAmount(netValue);
 
-const toLocalInvoiceItem = (item = {}) => {
-  const isFixedPrice = Number(item.is_fixed_price) === 1 || item.is_fixed_price === true;
-  return {
-    row_id: createLocalInvoiceItemId(),
-    description: String(item.description || ""),
-    quantity: isFixedPrice ? 1 : Math.max(1, clampPositiveInt(item.quantity, 1)),
-    unit_price: clampPositiveInt(item.unit_price, 0),
-    is_fixed_price: isFixedPrice,
-  };
-};
+const toLocalInvoiceItem = (item = {}) => ({
+  row_id: createLocalInvoiceItemId(),
+  description: String(item.description || ""),
+  quantity: Math.max(1, clampPositiveInt(item.quantity, 1)),
+  unit_price: clampPositiveInt(item.unit_price, 0),
+  is_fixed_price: !Number.isNaN(Number(item.is_fixed_price))
+    ? Number(item.is_fixed_price) === 1
+    : false,
+  item_type: isLaborInvoiceItem(item) ? "labor" : "service",
+});
 
 const toApiInvoiceItems = (items = []) =>
   items
@@ -71,10 +81,7 @@ const toApiInvoiceItems = (items = []) =>
       const description = String(item.description || "").trim();
       if (!description) return null;
 
-      const isFixedPrice = Boolean(item.is_fixed_price);
-      const quantity = isFixedPrice
-        ? 1
-        : Math.max(1, clampPositiveInt(item.quantity, 1));
+      const quantity = Math.max(1, clampPositiveInt(item.quantity, 1));
       const unitPrice = clampPositiveInt(item.unit_price, 0);
 
       return {
@@ -82,7 +89,7 @@ const toApiInvoiceItems = (items = []) =>
         quantity,
         unit_price: unitPrice,
         line_total: quantity * unitPrice,
-        is_fixed_price: isFixedPrice ? 1 : 0,
+        is_fixed_price: item.is_fixed_price ? 1 : 0,
       };
     })
     .filter(Boolean);
@@ -249,9 +256,21 @@ const buildInvoicePreviewHtml = ({ company, booking, items, canSendEmail }) => {
           .totals-row {
             display: flex;
             justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
             padding: 10px 12px;
             border-bottom: 1px solid #e5e7eb;
             font-size: 14px;
+          }
+          .totals-row span {
+            flex: 0 0 auto;
+          }
+          .totals-row strong {
+            margin-left: auto;
+            flex: 1 1 auto;
+            min-width: 0;
+            text-align: right;
+            word-break: break-word;
           }
           .totals-row:last-child {
             border-bottom: none;
@@ -423,8 +442,9 @@ export default function AdminDashboard() {
 
   const [showWorkForm, setShowWorkForm] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [additionalWorkServices, setAdditionalWorkServices] = useState([]);
+  const [selectedAdditionalServiceId, setSelectedAdditionalServiceId] = useState("");
 
-  const [workDescription, setWorkDescription] = useState("");
   const [workDate, setWorkDate] = useState("");
   const [workTime, setWorkTime] = useState("");
   const [confirmCancelId, setConfirmCancelId] = useState(null);
@@ -448,6 +468,15 @@ export default function AdminDashboard() {
   );
   const invoiceVatTotal = calculateVatAmount(invoiceTotalPrice);
   const invoiceGrossTotal = calculateGrossAmount(invoiceTotalPrice);
+  const mainInvoiceItem =
+    invoiceItems.find((item) => item.item_type !== "labor") || null;
+  const laborInvoiceItem =
+    invoiceItems.find((item) => item.item_type === "labor") || null;
+  const isFixedPriceBooking = Boolean(invoiceTargetWork?.is_fixed_price_booking);
+  const canAddLaborInvoiceItem =
+    !isFixedPriceBooking &&
+    Boolean(mainInvoiceItem) &&
+    !laborInvoiceItem;
   const normalizedBookingSearch = bookingSearchTerm.trim().toLowerCase();
   const filteredBookings = bookings.filter((b) => {
     if (!normalizedBookingSearch) return true;
@@ -619,16 +648,69 @@ export default function AdminDashboard() {
       setSavedInvoiceId(data.invoice?.id || null);
       const loadedItems = (data.items || []).map((item) => toLocalInvoiceItem(item));
       setInvoiceItems(
-        loadedItems.length
-          ? loadedItems
-          : [
-              toLocalInvoiceItem({
-                description: loadedWork.service_name || work.service || work.description || "",
-                quantity: 1,
-                unit_price: 0,
-                is_fixed_price: 0,
-              }),
-            ]
+        (() => {
+          const serviceName =
+            loadedWork.service_name ||
+            work.service ||
+            work.description ||
+            "Munkafolyamat";
+          const databasePriceCandidate =
+            clampPositiveInt(loadedWork.work_price, 0) > 0
+              ? clampPositiveInt(loadedWork.work_price, 0)
+              : clampPositiveInt(loadedWork.service_price, 0);
+          const isFixed = Number(loadedWork.is_fixed_price_booking || 0) === 1;
+          const selectedMainItem =
+            loadedItems.find((item) => item.item_type !== "labor") ||
+            toLocalInvoiceItem({
+              description: serviceName,
+              quantity: 1,
+              unit_price: databasePriceCandidate,
+              is_fixed_price: isFixed ? 1 : 0,
+              item_type: "service",
+            });
+          const selectedLaborItem = loadedItems.find(
+            (item) => item.item_type === "labor"
+          );
+
+          const normalizedMainItem = {
+            ...selectedMainItem,
+            description:
+              String(selectedMainItem.description || "").trim() ||
+              serviceName,
+            quantity: Math.max(1, clampPositiveInt(selectedMainItem.quantity, 1)),
+            unit_price:
+              clampPositiveInt(selectedMainItem.unit_price, 0) > 0
+                ? clampPositiveInt(selectedMainItem.unit_price, 0)
+                : databasePriceCandidate,
+            is_fixed_price: isFixed ? true : Boolean(selectedMainItem.is_fixed_price),
+            item_type: "service",
+          };
+
+          if (isFixed) {
+            return [normalizedMainItem];
+          }
+
+          if (!selectedLaborItem) {
+            return [normalizedMainItem];
+          }
+
+          return [
+            normalizedMainItem,
+            {
+              ...selectedLaborItem,
+              description:
+                String(selectedLaborItem.description || "").trim() ||
+                LABOR_ITEM_DESCRIPTION,
+              quantity: Math.max(
+                1,
+                clampPositiveInt(selectedLaborItem.quantity, 1)
+              ),
+              unit_price: clampPositiveInt(selectedLaborItem.unit_price, 0),
+              is_fixed_price: false,
+              item_type: "labor",
+            },
+          ];
+        })()
       );
     } catch (err) {
       console.error("Invoice load error:", err);
@@ -655,12 +737,10 @@ export default function AdminDashboard() {
         if (item.row_id !== rowId) return item;
 
         if (field === "description") {
-          if (item.is_fixed_price) return item;
           return { ...item, description: value };
         }
 
         if (field === "quantity") {
-          if (item.is_fixed_price) return item;
           if (value === "") {
             return {
               ...item,
@@ -696,16 +776,24 @@ export default function AdminDashboard() {
     setInvoiceItems((prev) => prev.filter((item) => item.row_id !== rowId));
   };
 
-  const addManualInvoiceItem = () => {
+  const addLaborInvoiceItem = () => {
+    if (!mainInvoiceItem || isFixedPriceBooking) {
+      return;
+    }
     setInvoiceItems((prev) => [
-      ...prev,
-      {
-        row_id: createLocalInvoiceItemId(),
-        description: "",
-        quantity: 1,
-        unit_price: 0,
-        is_fixed_price: false,
-      },
+      ...prev.filter((item) => item.item_type !== "labor"),
+      ...(prev.some((item) => item.item_type === "labor")
+        ? prev.filter((item) => item.item_type === "labor")
+        : [
+            {
+              row_id: createLocalInvoiceItemId(),
+              description: LABOR_ITEM_DESCRIPTION,
+              quantity: 1,
+              unit_price: 0,
+              is_fixed_price: false,
+              item_type: "labor",
+            },
+          ]),
     ]);
   };
 
@@ -746,7 +834,7 @@ export default function AdminDashboard() {
     const previewDocument = invoiceWindow.document;
     const workId = Number(invoiceTargetWork.id) || 0;
     const canSendEmail = Boolean(savedInvoiceId);
-    const emailApiUrl = "http://localhost/vizsga/api/v1/admin/invoice-email.php";
+    const emailApiUrl = apiUrl("/admin/invoice-email.php");
     const printButton = previewDocument.getElementById("print-btn");
     const downloadButton = previewDocument.getElementById("download-btn");
     const emailButton = previewDocument.getElementById("email-btn");
@@ -870,6 +958,7 @@ export default function AdminDashboard() {
 
         loadBookings();
         loadCompanyData();
+        loadAdditionalWorkServices();
       } catch (err) {
         console.error("Admin check error:", err);
         navigate("/admin-login");
@@ -896,14 +985,34 @@ export default function AdminDashboard() {
     }
     setWorkLoading(false);
   };
+  const loadAdditionalWorkServices = async () => {
+    try {
+      const res = await fetch(apiUrl("/catalog/services.php?bookable=0"), {
+        credentials: "include",
+      });
+      const data = await res.json();
+
+      if (!data.success) return;
+
+      const services = Array.isArray(data.services) ? data.services : [];
+      setAdditionalWorkServices(services);
+      setSelectedAdditionalServiceId((previous) => {
+        if (previous && services.some((service) => String(service.id) === String(previous))) {
+          return previous;
+        }
+        return services.length ? String(services[0].id) : "";
+      });
+    } catch (err) {
+      console.error("Additional services load error:", err);
+    }
+  };
 
   const submitAdditionalWork = async () => {
     if (!selectedBooking) {
       alert("Nincs kiválasztott foglalás");
       return;
     }
-
-    if (!workDescription || !workDate || !workTime) {
+    if (!selectedAdditionalServiceId || !workDate || !workTime) {
       alert("Minden mező kötelező");
       return;
     }
@@ -927,7 +1036,7 @@ export default function AdminDashboard() {
         credentials: "include",
         body: JSON.stringify({
           booking_id: selectedBooking.id,
-          description: workDescription,
+          service_id: Number(selectedAdditionalServiceId),
           date: workDate,
           time: workTime,
           
@@ -943,7 +1052,7 @@ export default function AdminDashboard() {
       }
 
       setShowWorkForm(false);
-      setWorkDescription("");
+      setSelectedAdditionalServiceId("");
       setWorkDate("");
       setWorkTime("");
 
@@ -1084,6 +1193,7 @@ export default function AdminDashboard() {
                           onClick={() => {
                             setSelectedBooking(b);
                             setShowWorkForm(true);
+                            loadAdditionalWorkServices();
                           }}
                           className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-sm"
                         >
@@ -1124,7 +1234,7 @@ export default function AdminDashboard() {
                       <th className="p-2">Szolgáltatás</th>
                       <th className="p-2">Ügyfél</th>
                       <th className="p-2">Autó</th>
-                      <th className="p-2">Telcsi</th>
+                      <th className="p-2">Telefon</th>
                       <th className="p-2">Művelet</th>
                     </tr>
                   </thead>
@@ -1159,6 +1269,7 @@ export default function AdminDashboard() {
                                 onClick={() => {
                                   setSelectedBooking(b);
                                   setShowWorkForm(true);
+                                  loadAdditionalWorkServices();
                                 }}
                                 className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded"
                               >
@@ -1371,101 +1482,172 @@ export default function AdminDashboard() {
               <p className="text-center py-8">Számla betöltése...</p>
             ) : (
               <>
-                <div className="overflow-x-auto border border-gray-700 rounded">
-                  <table className="w-full min-w-[720px] text-left">
-                    <thead className="bg-gray-800">
-                      <tr>
-                        <th className="p-2">Tétel</th>
-                        <th className="p-2 w-28">Mennyiség</th>
-                        <th className="p-2 w-40">Egységár (Ft)</th>
-                        <th className="p-2 w-40 text-right">Összesen</th>
-                        <th className="p-2 w-36 text-center">Művelet</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {invoiceItems.map((item) => (
-                        <tr key={item.row_id} className="border-t border-gray-700">
-                          <td className="p-2">
-                            <input
-                              type="text"
-                              value={item.description}
-                              disabled={item.is_fixed_price}
-                              onChange={(e) =>
-                                updateInvoiceItem(item.row_id, "description", e.target.value)
+                <div className="border border-gray-700 rounded p-3 sm:p-4 space-y-4">
+                  {mainInvoiceItem && (
+                    <div className="border border-gray-700 rounded p-3 sm:p-4 space-y-3">
+                      <p className="text-sm font-semibold text-gray-300">Fő tétel</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <input
+                          type="text"
+                          value={mainInvoiceItem.description}
+                          disabled={mainInvoiceItem.is_fixed_price}
+                          onChange={(e) =>
+                            updateInvoiceItem(
+                              mainInvoiceItem.row_id,
+                              "description",
+                              e.target.value
+                            )
+                          }
+                          placeholder="Szolgáltatás megnevezése"
+                          className="sm:col-span-2 w-full bg-black border border-gray-700 rounded px-3 py-2 disabled:opacity-60"
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          value={mainInvoiceItem.quantity}
+                          disabled={mainInvoiceItem.is_fixed_price}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) =>
+                            updateInvoiceItem(
+                              mainInvoiceItem.row_id,
+                              "quantity",
+                              e.target.value
+                            )
+                          }
+                          onBlur={() => {
+                            if (mainInvoiceItem.quantity === "") {
+                              updateInvoiceItem(mainInvoiceItem.row_id, "quantity", "1");
+                            }
+                          }}
+                          className="w-full bg-black border border-gray-700 rounded px-3 py-2 disabled:opacity-60"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Egységár (Ft)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={mainInvoiceItem.unit_price}
+                            disabled={mainInvoiceItem.is_fixed_price}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateInvoiceItem(
+                                mainInvoiceItem.row_id,
+                                "unit_price",
+                                e.target.value
+                              )
+                            }
+                            onBlur={() => {
+                              if (mainInvoiceItem.unit_price === "") {
+                                updateInvoiceItem(mainInvoiceItem.row_id, "unit_price", "0");
                               }
-                              placeholder="Pl.: Munkadíj, alkatrész..."
-                              className="w-full bg-black border border-gray-700 rounded px-2 py-1 disabled:opacity-60"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              disabled={item.is_fixed_price}
-                              onFocus={(e) => e.target.select()}
-                              onChange={(e) =>
-                                updateInvoiceItem(item.row_id, "quantity", e.target.value)
+                            }}
+                            className="w-full bg-black border border-gray-700 rounded px-3 py-2 disabled:opacity-60"
+                          />
+                        </div>
+                        <div className="sm:col-span-2 text-left sm:text-right font-semibold text-lg">
+                          Összesen: {formatPrice(calculateInvoiceLineTotal(mainInvoiceItem))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {laborInvoiceItem && (
+                    <div className="border border-gray-700 rounded p-3 sm:p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-gray-300">Munkadíj</p>
+                        <button
+                          type="button"
+                          onClick={() => removeInvoiceItem(laborInvoiceItem.row_id)}
+                          className="text-xs bg-red-700 hover:bg-red-800 px-2 py-1 rounded"
+                        >
+                          Törlés
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                        <input
+                          type="text"
+                          value={laborInvoiceItem.description}
+                          onChange={(e) =>
+                            updateInvoiceItem(
+                              laborInvoiceItem.row_id,
+                              "description",
+                              e.target.value
+                            )
+                          }
+                          className="sm:col-span-2 w-full bg-black border border-gray-700 rounded px-3 py-2"
+                        />
+                        <input
+                          type="number"
+                          min="1"
+                          value={laborInvoiceItem.quantity}
+                          onFocus={(e) => e.target.select()}
+                          onChange={(e) =>
+                            updateInvoiceItem(
+                              laborInvoiceItem.row_id,
+                              "quantity",
+                              e.target.value
+                            )
+                          }
+                          onBlur={() => {
+                            if (laborInvoiceItem.quantity === "") {
+                              updateInvoiceItem(laborInvoiceItem.row_id, "quantity", "1");
+                            }
+                          }}
+                          className="w-full bg-black border border-gray-700 rounded px-3 py-2"
+                        />
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Egységár (Ft)</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={laborInvoiceItem.unit_price}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateInvoiceItem(
+                                laborInvoiceItem.row_id,
+                                "unit_price",
+                                e.target.value
+                              )
+                            }
+                            onBlur={() => {
+                              if (laborInvoiceItem.unit_price === "") {
+                                updateInvoiceItem(laborInvoiceItem.row_id, "unit_price", "0");
                               }
-                              onBlur={() => {
-                                if (item.quantity === "") {
-                                  updateInvoiceItem(item.row_id, "quantity", "1");
-                                }
-                              }}
-                              className="w-full bg-black border border-gray-700 rounded px-2 py-1 disabled:opacity-60"
-                            />
-                          </td>
-                          <td className="p-2">
-                            <input
-                              type="number"
-                              min="0"
-                              step="1"
-                              value={item.unit_price}
-                              disabled={item.is_fixed_price}
-                              onFocus={(e) => e.target.select()}
-                              onChange={(e) =>
-                                updateInvoiceItem(item.row_id, "unit_price", e.target.value)
-                              }
-                              onBlur={() => {
-                                if (item.unit_price === "") {
-                                  updateInvoiceItem(item.row_id, "unit_price", "0");
-                                }
-                              }}
-                              className="w-full bg-black border border-gray-700 rounded px-2 py-1 disabled:opacity-60"
-                            />
-                          </td>
-                          <td className="p-2 text-right font-semibold">
-                            {formatPrice(calculateInvoiceLineTotal(item))}
-                          </td>
-                          <td className="p-2 text-center">
-                            {item.is_fixed_price ? (
-                              <span className="text-xs bg-yellow-700 px-2 py-1 rounded">
-                                Fix ár
-                              </span>
-                            ) : (
-                              <button
-                                type="button"
-                                onClick={() => removeInvoiceItem(item.row_id)}
-                                className="text-xs bg-red-700 hover:bg-red-800 px-2 py-1 rounded"
-                              >
-                                Törlés
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                            }}
+                            className="w-full bg-black border border-gray-700 rounded px-3 py-2"
+                          />
+                        </div>
+                        <div className="sm:col-span-2 text-left sm:text-right font-semibold text-lg">
+                          Összesen: {formatPrice(calculateInvoiceLineTotal(laborInvoiceItem))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
-                  <button
-                    type="button"
-                    onClick={addManualInvoiceItem}
-                    className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded self-start"
-                  >
-                    + Kézi tétel hozzáadása
-                  </button>
+                  <div className="self-start">
+                    {canAddLaborInvoiceItem && (
+                      <button
+                        type="button"
+                        onClick={addLaborInvoiceItem}
+                        className="bg-gray-700 hover:bg-gray-600 px-4 py-2 rounded"
+                      >
+                        + Munkadíj hozzáadása
+                      </button>
+                    )}
+                    {isFixedPriceBooking && (
+                      <p className="text-xs text-gray-400">
+                        Fix áras foglalás: munkadíj nem adható hozzá.
+                      </p>
+                    )}
+                  </div>
                   <div className="text-sm sm:text-right space-y-1">
                     <p className="font-semibold">
                       Nettó: <span className="text-red-400">{formatPrice(invoiceTotalPrice)}</span>
@@ -1522,12 +1704,20 @@ export default function AdminDashboard() {
               {selectedBooking.car_brand} {selectedBooking.car_model}
             </p>
 
-            <textarea
-              placeholder="Munka leírása"
-              value={workDescription}
-              onChange={e => setWorkDescription(e.target.value)}
+            <select
+              value={selectedAdditionalServiceId}
+              onChange={(e) => setSelectedAdditionalServiceId(e.target.value)}
               className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
-            />
+            >
+              {additionalWorkServices.length === 0 && (
+                <option value="">Nincs választható szolgáltatás</option>
+              )}
+              {additionalWorkServices.map((service) => (
+                <option key={service.id} value={service.id}>
+                  {service.name}
+                </option>
+              ))}
+            </select>
 
             <input
               type="date"
@@ -1548,7 +1738,10 @@ export default function AdminDashboard() {
 
             <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
               <button
-                onClick={() => setShowWorkForm(false)}
+                onClick={() => {
+                  setShowWorkForm(false);
+                  setSelectedAdditionalServiceId("");
+                }}
                 className="px-4 py-2 bg-gray-700 rounded w-full sm:w-auto"
               >
                 Mégse

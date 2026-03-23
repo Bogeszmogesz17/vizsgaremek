@@ -96,11 +96,37 @@ if (!$isAdmin && ($booking_date <= $today || $diff < 2)) {
     exit;
 }
 
-$stmt = $pdo->prepare("
-DELETE FROM work_process
-WHERE id = ?
-");
-$stmt->execute([$booking_id]);
+try {
+    $pdo->beginTransaction();
+
+    $stmt = $pdo->prepare("
+    DELETE FROM work_process_services
+    WHERE work_process_id = ?
+    ");
+    $stmt->execute([$booking_id]);
+
+    $stmt = $pdo->prepare("
+    DELETE FROM work_process
+    WHERE id = ?
+    ");
+    $stmt->execute([$booking_id]);
+
+    if ($stmt->rowCount() !== 1) {
+        throw new RuntimeException("Foglalás törlése sikertelen");
+    }
+
+    $pdo->commit();
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    echo json_encode([
+        "success" => false,
+        "message" => "A foglalás törlése sikertelen"
+    ]);
+    exit;
+}
 
 $mail = new PHPMailer(true);
 

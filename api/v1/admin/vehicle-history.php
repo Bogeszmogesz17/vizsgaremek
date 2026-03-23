@@ -12,11 +12,11 @@ $sql = "
         wp.appointment_time,
         wp.status,
         wp.work_price,
-        wp.material_price,
+        0 AS material_price,
         COALESCE(
             NULLIF(TRIM(wp.additional_work_description), ''),
             COALESCE(
-                GROUP_CONCAT(DISTINCT s.name ORDER BY s.name SEPARATOR ', '),
+                s.name,
                 'Nincs rögzített szolgáltatás'
             )
         ) AS services,
@@ -32,8 +32,7 @@ $sql = "
         COALESCE(ft.fuel_name, '') AS fuel_type,
         COALESCE(es.engine_size, '') AS engine_size
     FROM work_process wp
-    LEFT JOIN work_process_services wps ON wps.work_process_id = wp.id
-    LEFT JOIN services s ON s.id = wps.service_id
+    LEFT JOIN services s ON s.id = wp.service_id
     JOIN vehicles v ON v.id = wp.vehicle_id
     JOIN users u ON u.id = v.user_id
     LEFT JOIN settlement st ON st.id = u.settlement_id
@@ -56,27 +55,6 @@ if ($customerQuery !== "") {
 }
 
 $sql .= "
-    GROUP BY
-        wp.id,
-        wp.appointment_date,
-        wp.appointment_time,
-        wp.status,
-        wp.work_price,
-        wp.material_price,
-        wp.additional_work_description,
-        u.id,
-        u.name,
-        u.email,
-        u.phone_number,
-        st.post_code,
-        st.settlement_name,
-        u.address,
-        v.id,
-        b.brand_name,
-        m.model_name,
-        v.year,
-        ft.fuel_name,
-        es.engine_size
     ORDER BY wp.appointment_date DESC, wp.appointment_time DESC, wp.id DESC
     LIMIT 300
 ";

@@ -94,8 +94,27 @@ try {
     ], 500);
 }
 
-$deleteStatement = $pdo->prepare("DELETE FROM work_process WHERE id = ?");
-$deleteStatement->execute([$bookingId]);
+try {
+    $pdo->beginTransaction();
+
+    $deleteStatement = $pdo->prepare("DELETE FROM work_process WHERE id = ?");
+    $deleteStatement->execute([$bookingId]);
+
+    if ($deleteStatement->rowCount() !== 1) {
+        throw new RuntimeException("Foglalás törlése sikertelen");
+    }
+
+    $pdo->commit();
+} catch (Throwable $throwable) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+
+    jsonResponse([
+        "success" => false,
+        "message" => "A foglalás törlése sikertelen"
+    ], 500);
+}
 
 $mail = new PHPMailer(true);
 

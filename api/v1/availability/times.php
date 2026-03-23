@@ -15,7 +15,7 @@ $statement = $pdo->prepare("
     SELECT appointment_time
     FROM work_process
     WHERE appointment_date = ?
-      AND status = 0
+      AND (status = 0 OR status IS NULL)
 ");
 $statement->execute([$date]);
 

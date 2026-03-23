@@ -20,8 +20,7 @@ if ($method === "GET") {
             wp.appointment_time,
             s.name AS service_name
         FROM work_process wp
-        JOIN work_process_services wps ON wps.work_process_id = wp.id
-        JOIN services s ON s.id = wps.service_id
+        JOIN services s ON s.id = wp.service_id
         JOIN vehicles v ON v.id = wp.vehicle_id
         WHERE v.user_id = ?
           AND (wp.status = 0 OR wp.status IS NULL)
@@ -145,19 +144,12 @@ try {
             status,
             issued_at,
             work_price,
-            material_price,
+            service_id,
             method_id,
             invoices_id
-        ) VALUES (?, ?, ?, 0, NOW(), 0, 0, NULL, NULL)
+        ) VALUES (?, ?, ?, 0, NOW(), 0, ?, NULL, NULL)
     ");
-    $workProcessInsertStatement->execute([$vehicleId, $appointmentDate, $appointmentTime]);
-    $workProcessId = $pdo->lastInsertId();
-
-    $serviceInsertStatement = $pdo->prepare("
-        INSERT INTO work_process_services (work_process_id, service_id)
-        VALUES (?, ?)
-    ");
-    $serviceInsertStatement->execute([$workProcessId, $serviceId]);
+    $workProcessInsertStatement->execute([$vehicleId, $appointmentDate, $appointmentTime, $serviceId]);
 
     $carStatement = $pdo->prepare("
         SELECT b.brand_name AS brand, m.model_name AS model

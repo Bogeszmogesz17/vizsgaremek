@@ -38,10 +38,10 @@ $statement = $pdo->prepare("
         wp.appointment_date,
         wp.appointment_time,
         wp.work_price,
-        wp.material_price,
+        0 AS material_price,
         COALESCE(
             NULLIF(TRIM(wp.additional_work_description), ''),
-            COALESCE(GROUP_CONCAT(DISTINCT s.name SEPARATOR ', '), 'Munkafolyamat')
+            COALESCE(s.name, 'Munkafolyamat')
         ) AS service_name,
         u.name AS user_name,
         u.email AS user_email,
@@ -50,29 +50,13 @@ $statement = $pdo->prepare("
         b.brand_name AS car_brand,
         m.model_name AS car_model
     FROM work_process wp
-    LEFT JOIN work_process_services wps ON wps.work_process_id = wp.id
-    LEFT JOIN services s ON s.id = wps.service_id
+    LEFT JOIN services s ON s.id = wp.service_id
     JOIN vehicles v ON v.id = wp.vehicle_id
     JOIN users u ON u.id = v.user_id
     LEFT JOIN settlement st ON st.id = u.settlement_id
     JOIN model m ON m.id = v.model_id
     JOIN brand b ON b.id = m.brand_id
     WHERE wp.id = ?
-    GROUP BY
-        wp.id,
-        wp.appointment_date,
-        wp.appointment_time,
-        wp.work_price,
-        wp.material_price,
-        wp.additional_work_description,
-        u.name,
-        u.email,
-        u.phone_number,
-        st.post_code,
-        st.settlement_name,
-        u.address,
-        b.brand_name,
-        m.model_name
     LIMIT 1
 ");
 $statement->execute([$workId]);

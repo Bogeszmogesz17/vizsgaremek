@@ -11,27 +11,6 @@ require_once __DIR__ . "/../../phpmailer/src/SMTP.php";
 
 $method = requireMethod(["GET", "POST"]);
 requireAdminSession();
-function getBaseAdditionalWorkServiceId(PDO $pdo): int
-{
-    $statement = $pdo->query("
-        SELECT id
-        FROM services
-        WHERE id <= 6
-          AND COALESCE(is_bookable, 1) = 0
-        ORDER BY id ASC
-        LIMIT 1
-    ");
-    $serviceId = (int)$statement->fetchColumn();
-
-    if ($serviceId <= 0) {
-        jsonResponse([
-            "success" => false,
-            "message" => "Nem található alap (nem foglalható) szolgáltatás a további munkákhoz"
-        ], 500);
-    }
-
-    return $serviceId;
-}
 
 if ($method === "GET") {
     $statement = $pdo->query("
@@ -40,7 +19,7 @@ if ($method === "GET") {
             wp.appointment_date,
             wp.appointment_time,
             wp.work_price,
-            wp.material_price,
+            0 AS material_price,
             COALESCE(NULLIF(TRIM(wp.additional_work_description), ''), COALESCE(s.name, '')) AS description,
             u.name AS user_name,
             u.email AS user_email,
@@ -49,15 +28,13 @@ if ($method === "GET") {
             b.brand_name AS car_brand,
             m.model_name AS car_model
         FROM work_process wp
-        LEFT JOIN work_process_services wps ON wps.work_process_id = wp.id
-        LEFT JOIN services s ON s.id = wps.service_id
+        LEFT JOIN services s ON s.id = wp.service_id
         JOIN vehicles v ON wp.vehicle_id = v.id
         JOIN users u ON v.user_id = u.id
         LEFT JOIN settlement st ON st.id = u.settlement_id
         JOIN model m ON v.model_id = m.id
         JOIN brand b ON m.brand_id = b.id
         WHERE (wp.status = 0 OR wp.status IS NULL)
-          AND s.id <= 6
           AND COALESCE(s.is_bookable, 1) = 0
         ORDER BY wp.appointment_date ASC, wp.appointment_time ASC
     ");
@@ -72,9 +49,9 @@ $data = readJsonInput();
 $originalWorkProcessId = requirePositiveInt($data["booking_id"] ?? null, "Hiányzó foglalás azonosító");
 $date = trim((string)($data["date"] ?? ""));
 $time = trim((string)($data["time"] ?? ""));
-$serviceName = trim((string)($data["description"] ?? ""));
+$serviceId = requirePositiveInt($data["service_id"] ?? null, "Hiányzó szolgáltatás azonosító");
 
-if ($date === "" || $time === "" || $serviceName === "") {
+if ($date === "" || $time === "") {
     jsonResponse([
         "success" => false,
         "message" => "Hiányzó adatok"
@@ -155,7 +132,23 @@ try {
             "message" => "Ez az időpont már foglalt"
         ], 409);
     }
-    $serviceId = getBaseAdditionalWorkServiceId($pdo);
+
+    $serviceStatement = $pdo->prepare("
+        SELECT id
+        FROM services
+        WHERE id = ?
+          AND COALESCE(is_bookable, 1) = 0
+        LIMIT 1
+    ");
+    $serviceStatement->execute([$serviceId]);
+    $selectedServiceId = (int)$serviceStatement->fetchColumn();
+
+    if ($selectedServiceId <= 0) {
+        jsonResponse([
+            "success" => false,
+            "message" => "Érvénytelen szolgáltatás választás"
+        ], 400);
+    }
 
     $pdo->beginTransaction();
 
@@ -167,20 +160,13 @@ try {
             status,
             issued_at,
             work_price,
-            material_price,
             method_id,
             invoices_id,
-            additional_work_description
-        ) VALUES (?, ?, ?, 0, NOW(), 0, 0, NULL, NULL, ?)
+            additional_work_description,
+            service_id
+        ) VALUES (?, ?, ?, 0, NOW(), 0, NULL, NULL, NULL, ?)
     ");
-    $workProcessInsertStatement->execute([$work["vehicle_id"], $date, $time, $serviceName]);
-    $newWorkProcessId = $pdo->lastInsertId();
-
-    $serviceLinkStatement = $pdo->prepare("
-        INSERT INTO work_process_services (work_process_id, service_id)
-        VALUES (?, ?)
-    ");
-    $serviceLinkStatement->execute([$newWorkProcessId, $serviceId]);
+    $workProcessInsertStatement->execute([$work["vehicle_id"], $date, $time, $selectedServiceId]);
 
     $closeOriginalStatement = $pdo->prepare("
         UPDATE work_process

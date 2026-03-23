@@ -4,60 +4,30 @@ require_once __DIR__ . "/../_bootstrap.php";
 $method = requireMethod(["GET", "POST"]);
 requireAdminSession();
 
-function normalizeServiceName(string $value): string
-{
-    $normalized = mb_strtolower(trim($value), "UTF-8");
-    $normalized = strtr($normalized, [
-        "á" => "a",
-        "é" => "e",
-        "í" => "i",
-        "ó" => "o",
-        "ö" => "o",
-        "ő" => "o",
-        "ú" => "u",
-        "ü" => "u",
-        "ű" => "u"
-    ]);
+if ($method === "GET") {
+    $workId = getPositiveIntQueryParam("work_id");
+    if (!$workId) {
+        jsonResponse([
+            "success" => false,
+            "message" => "Hiányzó munkafolyamat azonosító"
+        ], 400);
+    }
 
-    return preg_replace("/\s+/", " ", $normalized) ?? "";
-}
-
-function isFixedPriceService(string $serviceName): bool
-{
-    $normalizedName = normalizeServiceName($serviceName);
-    return strpos($normalizedName, "gumiz") !== false || strpos($normalizedName, "atvizsg") !== false;
-}
-
-function ensureInvoiceItemsTable(PDO $pdo): void
-{
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS invoice_items (
-            id INT NOT NULL AUTO_INCREMENT,
-            invoice_id INT NOT NULL,
-            description VARCHAR(255) NOT NULL,
-            quantity INT NOT NULL DEFAULT 1,
-            unit_price INT NOT NULL DEFAULT 0,
-            line_total INT NOT NULL DEFAULT 0,
-            is_fixed_price TINYINT(1) NOT NULL DEFAULT 0,
-            PRIMARY KEY (id),
-            KEY idx_invoice_id (invoice_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-}
-
-function loadInvoiceContext(PDO $pdo, int $workId): array
-{
-    $statement = $pdo->prepare("
+    $workStatement = $pdo->prepare("
         SELECT
             wp.id,
             wp.appointment_date,
             wp.appointment_time,
             wp.work_price,
-            wp.material_price,
             wp.invoices_id,
+            COALESCE(s.price, 0) AS service_price,
+            CASE
+                WHEN COALESCE(s.is_bookable, 1) = 1 THEN 1
+                ELSE 0
+            END AS is_fixed_price_booking,
             COALESCE(
                 NULLIF(TRIM(wp.additional_work_description), ''),
-                COALESCE(GROUP_CONCAT(DISTINCT s.name SEPARATOR ', '), 'Munkafolyamat')
+                COALESCE(s.name, 'Munkafolyamat')
             ) AS service_name,
             u.name AS user_name,
             u.email AS user_email,
@@ -66,318 +36,161 @@ function loadInvoiceContext(PDO $pdo, int $workId): array
             b.brand_name AS car_brand,
             m.model_name AS car_model
         FROM work_process wp
-        LEFT JOIN work_process_services wps ON wps.work_process_id = wp.id
-        LEFT JOIN services s ON s.id = wps.service_id
+        LEFT JOIN services s ON s.id = wp.service_id
         JOIN vehicles v ON v.id = wp.vehicle_id
         JOIN users u ON u.id = v.user_id
         LEFT JOIN settlement st ON st.id = u.settlement_id
         JOIN model m ON m.id = v.model_id
         JOIN brand b ON b.id = m.brand_id
         WHERE wp.id = ?
-        GROUP BY
-            wp.id,
-            wp.appointment_date,
-            wp.appointment_time,
-            wp.work_price,
-            wp.material_price,
-            wp.invoices_id,
-            wp.additional_work_description,
-            u.name,
-            u.email,
-            u.phone_number,
-            st.post_code,
-            st.settlement_name,
-            u.address,
-            b.brand_name,
-            m.model_name
         LIMIT 1
     ");
-    $statement->execute([$workId]);
-    $context = $statement->fetch(PDO::FETCH_ASSOC);
+    $workStatement->execute([$workId]);
+    $work = $workStatement->fetch(PDO::FETCH_ASSOC);
 
-    if (!$context) {
+    if (!$work) {
         jsonResponse([
             "success" => false,
             "message" => "A munkafolyamat nem található"
         ], 404);
     }
 
-    return $context;
-}
-
-function loadInvoiceRow(PDO $pdo, array $context): ?array
-{
-    if (!empty($context["invoices_id"])) {
-        $statement = $pdo->prepare("
-            SELECT id, work_process_id, exhibition_date, payment_deadline, serial_number, completion_date, payment
-            FROM invoice
-            WHERE id = ?
-            LIMIT 1
-        ");
-        $statement->execute([(int)$context["invoices_id"]]);
-        $invoice = $statement->fetch(PDO::FETCH_ASSOC);
-        if ($invoice) {
-            return $invoice;
-        }
-    }
-
-    $fallbackStatement = $pdo->prepare("
-        SELECT id, work_process_id, exhibition_date, payment_deadline, serial_number, completion_date, payment
-        FROM invoice
-        WHERE work_process_id = ?
-        ORDER BY id DESC
-        LIMIT 1
-    ");
-    $fallbackStatement->execute([(int)$context["id"]]);
-    $invoice = $fallbackStatement->fetch(PDO::FETCH_ASSOC);
-
-    return $invoice ?: null;
-}
-
-function loadDefaultItemsForWork(PDO $pdo, int $workId): array
-{
-    $customDescriptionStatement = $pdo->prepare("
-        SELECT TRIM(COALESCE(additional_work_description, '')) AS additional_work_description
-        FROM work_process
-        WHERE id = ?
-        LIMIT 1
-    ");
-    $customDescriptionStatement->execute([$workId]);
-    $customDescription = trim((string)$customDescriptionStatement->fetchColumn());
-    if ($customDescription !== "") {
-        return [[
-            "description" => $customDescription,
-            "quantity" => 1,
-            "unit_price" => 0,
-            "line_total" => 0,
-            "is_fixed_price" => 0
-        ]];
-    }
-    $statement = $pdo->prepare("
-        SELECT s.name, COALESCE(s.price, 0) AS price
-        FROM work_process_services wps
-        JOIN services s ON s.id = wps.service_id
-        WHERE wps.work_process_id = ?
-        ORDER BY s.name ASC
-    ");
-    $statement->execute([$workId]);
-    $services = $statement->fetchAll(PDO::FETCH_ASSOC);
-
-    if (!$services) {
-        return [[
-            "description" => "Munkafolyamat",
-            "quantity" => 1,
-            "unit_price" => 0,
-            "line_total" => 0,
-            "is_fixed_price" => 0
-        ]];
-    }
-
-    $items = [];
-    foreach ($services as $service) {
-        $description = trim((string)($service["name"] ?? ""));
-        if ($description === "") {
-            continue;
-        }
-
-        $unitPrice = max(0, (int)($service["price"] ?? 0));
-        $isFixedPrice = isFixedPriceService($description) ? 1 : 0;
-
-        $items[] = [
-            "description" => $description,
-            "quantity" => 1,
-            "unit_price" => $unitPrice,
-            "line_total" => $unitPrice,
-            "is_fixed_price" => $isFixedPrice
-        ];
-    }
-
-    if (!$items) {
-        $items[] = [
-            "description" => "Munkafolyamat",
-            "quantity" => 1,
-            "unit_price" => 0,
-            "line_total" => 0,
-            "is_fixed_price" => 0
-        ];
-    }
-
-    return $items;
-}
-
-function loadFixedPriceMap(PDO $pdo, int $workId): array
-{
-    $statement = $pdo->prepare("
-        SELECT s.name, COALESCE(s.price, 0) AS price
-        FROM work_process_services wps
-        JOIN services s ON s.id = wps.service_id
-        WHERE wps.work_process_id = ?
-    ");
-    $statement->execute([$workId]);
-    $rows = $statement->fetchAll(PDO::FETCH_ASSOC);
-
-    $map = [];
-    foreach ($rows as $row) {
-        $name = trim((string)($row["name"] ?? ""));
-        if ($name === "" || !isFixedPriceService($name)) {
-            continue;
-        }
-
-        $map[normalizeServiceName($name)] = max(0, (int)($row["price"] ?? 0));
-    }
-
-    return $map;
-}
-
-if ($method === "GET") {
-    ensureInvoiceItemsTable($pdo);
-
-    $workId = requirePositiveInt($_GET["work_id"] ?? null, "Érvénytelen azonosító");
-    $context = loadInvoiceContext($pdo, $workId);
-    $invoice = loadInvoiceRow($pdo, $context);
-
-    $items = [];
-    if ($invoice) {
-        $itemStatement = $pdo->prepare("
-            SELECT id, description, quantity, unit_price, line_total, is_fixed_price
-            FROM invoice_items
-            WHERE invoice_id = ?
-            ORDER BY id ASC
-        ");
-        $itemStatement->execute([(int)$invoice["id"]]);
-        $items = $itemStatement->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    if (!$items) {
-        $items = loadDefaultItemsForWork($pdo, $workId);
-    }
-
-    $totalPrice = 0;
-    foreach ($items as $item) {
-        $totalPrice += max(0, (int)($item["line_total"] ?? 0));
-    }
+    $defaultDescription = trim((string)($work["service_name"] ?? "Munkafolyamat"));
+    $storedWorkPrice = max(0, (int)($work["work_price"] ?? 0));
+    $servicePrice = max(0, (int)($work["service_price"] ?? 0));
+    $isFixedPriceBooking = !empty($work["is_fixed_price_booking"]) ? 1 : 0;
+    $defaultTotal = $storedWorkPrice > 0 ? $storedWorkPrice : $servicePrice;
+    $items = [[
+        "description" => $defaultDescription !== "" ? $defaultDescription : "Munkafolyamat",
+        "quantity" => 1,
+        "unit_price" => $defaultTotal,
+        "line_total" => $defaultTotal,
+        "is_fixed_price" => $isFixedPriceBooking
+    ]];
 
     jsonResponse([
         "success" => true,
-        "work" => $context,
-        "invoice" => $invoice,
-        "items" => $items,
-        "total_price" => $totalPrice
+        "work" => $work,
+        "invoice" => [
+            "id" => (int)$workId
+        ],
+        "items" => $items
     ]);
 }
 
-$data = readJsonInput();
-$workId = requirePositiveInt($data["work_id"] ?? null, "Érvénytelen azonosító");
-$rawItems = $data["items"] ?? null;
 
-if (!is_array($rawItems) || count($rawItems) === 0) {
+$data = readJsonInput();
+$workId = requirePositiveInt($data["work_id"] ?? null, "Hiányzó munkafolyamat azonosító");
+$itemsInput = $data["items"] ?? null;
+
+if (!is_array($itemsInput) || count($itemsInput) === 0) {
     jsonResponse([
         "success" => false,
-        "message" => "Legalább egy tétel megadása kötelező"
+        "message" => "Legalább egy számlatétel kötelező"
     ], 400);
 }
 
-ensureInvoiceItemsTable($pdo);
-$context = loadInvoiceContext($pdo, $workId);
-$fixedPriceMap = loadFixedPriceMap($pdo, $workId);
+$sanitizedItems = [];
+$netTotal = 0;
 
-$items = [];
-foreach ($rawItems as $rawItem) {
-    if (!is_array($rawItem)) {
+foreach ($itemsInput as $item) {
+    if (!is_array($item)) {
         continue;
     }
 
-    $description = trim((string)($rawItem["description"] ?? ""));
+    $description = trim((string)($item["description"] ?? ""));
     if ($description === "") {
         continue;
     }
+    if (mb_strlen($description) > 255) {
+        $description = mb_substr($description, 0, 255);
+    }
 
-    $quantity = (int)($rawItem["quantity"] ?? 1);
-    $quantity = $quantity > 0 ? $quantity : 1;
-
-    $unitPrice = (int)($rawItem["unit_price"] ?? 0);
-    $unitPrice = $unitPrice >= 0 ? $unitPrice : 0;
-
-    $normalizedDescription = normalizeServiceName($description);
-    $isFixedPrice = array_key_exists($normalizedDescription, $fixedPriceMap);
-    if ($isFixedPrice) {
-        $unitPrice = $fixedPriceMap[$normalizedDescription];
+    $quantity = is_numeric($item["quantity"] ?? null) ? (int)$item["quantity"] : 1;
+    if ($quantity < 1) {
         $quantity = 1;
     }
 
-    $lineTotal = $quantity * $unitPrice;
+    $unitPrice = is_numeric($item["unit_price"] ?? null) ? (int)$item["unit_price"] : 0;
+    if ($unitPrice < 0) {
+        $unitPrice = 0;
+    }
 
-    $items[] = [
+    $lineTotal = $quantity * $unitPrice;
+    $isFixedPrice = !empty($item["is_fixed_price"]) ? 1 : 0;
+
+    $netTotal += $lineTotal;
+    $sanitizedItems[] = [
         "description" => $description,
         "quantity" => $quantity,
         "unit_price" => $unitPrice,
         "line_total" => $lineTotal,
-        "is_fixed_price" => $isFixedPrice ? 1 : 0
+        "is_fixed_price" => $isFixedPrice
     ];
 }
 
-if (!$items) {
+if (!$sanitizedItems) {
     jsonResponse([
         "success" => false,
-        "message" => "Nincs érvényes számlatétel"
+        "message" => "Érvénytelen számlatételek"
     ], 400);
 }
 
-$totalPrice = 0;
-foreach ($items as $item) {
-    $totalPrice += $item["line_total"];
+$descriptionParts = [];
+foreach ($sanitizedItems as $item) {
+    $descriptionParts[] = trim((string)$item["description"]);
 }
 
-$today = date("Y-m-d");
-$paymentDeadline = date("Y-m-d", strtotime("+8 days"));
-$serialNumber = "SZ-" . str_pad((string)$workId, 6, "0", STR_PAD_LEFT) . "-" . date("Ymd");
+$storedDescription = trim(implode("; ", array_filter($descriptionParts, static function ($value) {
+    return $value !== "";
+})));
+if (mb_strlen($storedDescription) > 255) {
+    $storedDescription = mb_substr($storedDescription, 0, 255);
+}
+
+$storedItems = [[
+    "description" => $storedDescription !== "" ? $storedDescription : "Munkafolyamat",
+    "quantity" => 1,
+    "unit_price" => $netTotal,
+    "line_total" => $netTotal,
+    "is_fixed_price" => 0
+]];
 
 try {
     $pdo->beginTransaction();
 
-    $invoice = loadInvoiceRow($pdo, $context);
-    if ($invoice) {
-        $invoiceId = (int)$invoice["id"];
-        $invoiceUpdateStatement = $pdo->prepare("
-            UPDATE invoice
-            SET exhibition_date = ?, payment_deadline = ?, completion_date = ?, payment = 0
-            WHERE id = ?
-        ");
-        $invoiceUpdateStatement->execute([$today, $paymentDeadline, $today, $invoiceId]);
-    } else {
-        $invoiceInsertStatement = $pdo->prepare("
-            INSERT INTO invoice (work_process_id, exhibition_date, payment_deadline, serial_number, completion_date, payment)
-            VALUES (?, ?, ?, ?, ?, 0)
-        ");
-        $invoiceInsertStatement->execute([$workId, $today, $paymentDeadline, $serialNumber, $today]);
-        $invoiceId = (int)$pdo->lastInsertId();
+    $workExistsStatement = $pdo->prepare("
+        SELECT id
+        FROM work_process
+        WHERE id = ?
+        LIMIT 1
+        FOR UPDATE
+    ");
+    $workExistsStatement->execute([$workId]);
+    if (!$workExistsStatement->fetchColumn()) {
+        $pdo->rollBack();
+        jsonResponse([
+            "success" => false,
+            "message" => "A munkafolyamat nem található"
+        ], 404);
     }
 
-    $linkInvoiceStatement = $pdo->prepare("
+
+    $updateWorkStatement = $pdo->prepare("
         UPDATE work_process
-        SET invoices_id = ?, work_price = ?, material_price = 0
+        SET
+            work_price = ?,
+            invoices_id = ?,
+            additional_work_description = ?,
+            exhibition_date = COALESCE(exhibition_date, CURDATE())
         WHERE id = ?
     ");
-    $linkInvoiceStatement->execute([$invoiceId, $totalPrice, $workId]);
-
-    $deleteItemsStatement = $pdo->prepare("DELETE FROM invoice_items WHERE invoice_id = ?");
-    $deleteItemsStatement->execute([$invoiceId]);
-
-    $insertItemStatement = $pdo->prepare("
-        INSERT INTO invoice_items (invoice_id, description, quantity, unit_price, line_total, is_fixed_price)
-        VALUES (?, ?, ?, ?, ?, ?)
-    ");
-
-    foreach ($items as $item) {
-        $insertItemStatement->execute([
-            $invoiceId,
-            $item["description"],
-            $item["quantity"],
-            $item["unit_price"],
-            $item["line_total"],
-            $item["is_fixed_price"]
-        ]);
-    }
+    $updateWorkStatement->execute([
+        $netTotal,
+        $workId,
+        $storedDescription !== "" ? $storedDescription : null,
+        $workId
+    ]);
 
     $pdo->commit();
 } catch (Throwable $throwable) {
@@ -394,7 +207,6 @@ try {
 jsonResponse([
     "success" => true,
     "message" => "A számla mentése sikeres",
-    "invoice_id" => $invoiceId,
-    "total_price" => $totalPrice,
-    "items" => $items
+    "invoice_id" => $workId,
+    "items" => $storedItems
 ]);

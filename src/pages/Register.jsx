@@ -108,34 +108,40 @@ export default function Register() {
     <>
       <div className="w-[calc(100%-1rem)] sm:w-full max-w-md mx-auto bg-gray-900 p-5 sm:p-8 rounded text-white mt-6 sm:mt-10">
         <h2 className="text-2xl sm:text-3xl font-bold text-red-600 mb-6 text-center">Regisztráció</h2>
+        <p className="text-sm text-gray-300 mb-4 text-center">
+          A <span className="text-red-500">*</span>-gal jelölt mezők kitöltése kötelező.
+        </p>
 
         <form onSubmit={handleRegister} className="space-y-3">
           <input
             className="w-full p-3 bg-black rounded"
-            placeholder="Név"
+            placeholder="Név *"
             value={name}
             onChange={(event) => setName(event.target.value)}
+            required
           />
 
           <input
             type="email"
             className="w-full p-3 bg-black rounded"
-            placeholder="Email"
+            placeholder="Email *"
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            required
           />
 
           <input
             type="tel"
-            placeholder="Telefonszám"
+            placeholder="Telefonszám *"
             value={phoneNumber}
             onChange={(event) => setPhoneNumber(event.target.value)}
             className="w-full p-3 bg-black rounded"
+            required
           />
 
           <input
             type="text"
-            placeholder="Irányítószám"
+            placeholder="Irányítószám *"
             value={postalCode}
             onChange={(event) => {
               const nextPostalCode = event.target.value;
@@ -146,11 +152,12 @@ export default function Register() {
               }
             }}
             className="w-full p-3 bg-black rounded"
+            required
           />
 
           <input
             type="text"
-            placeholder="Település"
+            placeholder="Település *"
             value={settlementName}
             disabled
             className="w-full p-3 bg-gray-800 rounded text-gray-400"
@@ -158,19 +165,21 @@ export default function Register() {
 
           <input
             type="text"
-            placeholder="Lakcím"
+            placeholder="Lakcím *"
             value={address}
             onChange={(event) => setAddress(event.target.value)}
             className="w-full p-3 bg-black rounded"
+            required
           />
 
           <div className="relative">
             <input
               type={showPassword ? "text" : "password"}
-              placeholder="Jelszó"
+              placeholder="Jelszó *"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+              required
             />
 
             <button
@@ -180,15 +189,19 @@ export default function Register() {
             >
               {showPassword ? "🙈" : "👁️"}
             </button>
+            <p className="mt-2 text-xs text-gray-400">
+              Jelszókövetelmény: legalább 8 karakter, minimum 1 nagybetű és 1 szám.
+            </p>
           </div>
 
           <div className="relative">
             <input
               type={showConfirmPassword ? "text" : "password"}
-              placeholder="Jelszó megerősítése"
+              placeholder="Jelszó megerősítése *"
               value={confirmPassword}
               onChange={(event) => setConfirmPassword(event.target.value)}
               className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+              required
             />
 
             <button
@@ -207,8 +220,10 @@ export default function Register() {
               checked={termsAccepted}
               onChange={(event) => setTermsAccepted(event.target.checked)}
               className="mt-1 h-4 w-4 accent-red-600"
+              required
             />
             <label htmlFor="termsAccepted" className="leading-5">
+              <span className="text-red-500">*</span>{" "}
               Tudomásul veszem és elfogadom az{" "}
               <a
                 href="/aszf.html"
