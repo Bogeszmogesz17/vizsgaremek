@@ -39,7 +39,7 @@ export default function Footer() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 mt-10 pt-6 border-t border-gray-900 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-        <p>&copy; 2026 Autószerviz Pro. Minden jog fenntartva.</p>
+        <p>&copy; 2026 Dupla Dugattyú Műhely. Minden jog fenntartva.</p>
         <div className="flex gap-6">
           <a
             href="/adatkezelesi-tajekoztato.html"
