@@ -146,7 +146,7 @@ const buildInvoicePreviewHtml = ({ company, booking, items, canSendEmail }) => {
             margin: 0;
             background: #f3f4f6;
             color: #111827;
-            font-family: Arial, Helvetica, sans-serif;
+            font-family: Arial, "Helvetica Neue", Helvetica, sans-serif;
           }
           .container {
             max-width: 900px;
