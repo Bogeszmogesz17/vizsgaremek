@@ -11,6 +11,8 @@ export default function ResetPassword() {
 
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword2, setShowPassword2] = useState(false);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState("");
 
@@ -64,21 +66,39 @@ export default function ResetPassword() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
 
-        <input
-          type="password"
-          placeholder="Új jelszó"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="w-full p-3 bg-black rounded border border-gray-700"
-        />
+        <div className="relative">
+          <input
+            type={showPassword ? "text" : "password"}
+            placeholder="Új jelszó"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+          >
+            {showPassword ? "🙈" : "👁️"}
+          </button>
+        </div>
 
-        <input
-          type="password"
-          placeholder="Új jelszó megerősítése"
-          value={password2}
-          onChange={(e) => setPassword2(e.target.value)}
-          className="w-full p-3 bg-black rounded border border-gray-700"
-        />
+        <div className="relative">
+          <input
+            type={showPassword2 ? "text" : "password"}
+            placeholder="Új jelszó megerősítése"
+            value={password2}
+            onChange={(e) => setPassword2(e.target.value)}
+            className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword2(!showPassword2)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+          >
+            {showPassword2 ? "🙈" : "👁️"}
+          </button>
+        </div>
 
         <button
           type="submit"

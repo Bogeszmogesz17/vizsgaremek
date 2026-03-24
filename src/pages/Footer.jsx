@@ -2,9 +2,20 @@ import { Link, useLocation } from "react-router-dom";
 
 export default function Footer() {
   const location = useLocation();
+  const minimalFooterPaths = ["/szolgaltatasok", "/idopont"];
 
   if (location.pathname.startsWith("/admin")) {
     return null;
+  }
+
+  if (minimalFooterPaths.includes(location.pathname)) {
+    return (
+      <footer className="bg-black border-t border-gray-900 py-6 mt-10">
+        <div className="max-w-7xl mx-auto px-4 text-xs text-gray-500 text-center">
+          <p>&copy; 2026 Dupla Dugattyú Műhely. Minden jog fenntartva.</p>
+        </div>
+      </footer>
+    );
   }
 
   return (

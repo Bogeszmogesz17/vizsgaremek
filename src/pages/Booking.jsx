@@ -22,6 +22,9 @@ export default function Booking() {
 
 
   const currentYear = new Date().getFullYear();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const currentMonth = today.getMonth() + 1;
   const availableYears = [currentYear, currentYear + 1];
   const [selectedYear, setSelectedYear] = useState(currentYear);
 
@@ -39,6 +42,7 @@ export default function Booking() {
   const [selectedMonth, setSelectedMonth] = useState("");
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+  const [touched, setTouched] = useState({});
 
   const selectedDate =
     selectedMonth && selectedDay
@@ -176,6 +180,14 @@ export default function Booking() {
     const formatted = `${year}-${month}-${day}`;
     return holidays.includes(formatted);
   };
+  const isPastDate = (year, month, day) => {
+    if (!year || !month || !day) {
+      return false;
+    }
+    const date = new Date(year, Number(month) - 1, Number(day));
+    date.setHours(0, 0, 0, 0);
+    return date < today;
+  };
 
   const days = Array.from({ length: 31 }, (_, i) =>
     (i + 1).toString().padStart(2, "0")
@@ -208,20 +220,85 @@ export default function Booking() {
   );
   const isElectric = selectedFuel?.fuel_name?.toLowerCase() === "elektromos";
 
+  const setFieldTouched = (fieldName) => {
+    setTouched((prev) => ({ ...prev, [fieldName]: true }));
+  };
+
+  const isFieldInvalid = (fieldName) => {
+    if (!touched[fieldName]) {
+      return false;
+    }
+
+    switch (fieldName) {
+      case "selectedMonth":
+        return !selectedMonth;
+      case "selectedDay":
+        return !selectedDay;
+      case "selectedService":
+        return !selectedService;
+      case "carBrand":
+        return !carBrand;
+      case "carModel":
+        return !carModel;
+      case "carYear":
+        return !carYear;
+      case "fuelType":
+        return !fuelType;
+      case "engineSize":
+        return !isElectric && !engineSize;
+      default:
+        return false;
+    }
+  };
+
+  const getSelectClassName = (fieldName, extraClass = "") =>
+    `bg-black p-3 rounded border ${
+      isFieldInvalid(fieldName) ? "border-red-500" : "border-gray-800"
+    } focus:outline-none focus:ring-2 ${
+      isFieldInvalid(fieldName) ? "focus:ring-red-500" : "focus:ring-red-600"
+    } ${extraClass}`.trim();
+
   const handleBooking = async () => {
+    const requiredFields = [
+      "selectedMonth",
+      "selectedDay",
+      "selectedService",
+      "carBrand",
+      "carModel",
+      "carYear",
+      "fuelType",
+    ];
+
+    if (!isElectric) {
+      requiredFields.push("engineSize");
+    }
+
+    setTouched((prev) => {
+      const next = { ...prev };
+      requiredFields.forEach((field) => {
+        next[field] = true;
+      });
+      return next;
+    });
 
     if (!selectedDate || !selectedTime) {
       alert("Válassz dátumot és időpontot!");
       return;
     }
-
-    if (!selectedService) {
-      alert("Válassz szolgáltatást!");
+    if (isPastDate(selectedYear, selectedMonth, selectedDay)) {
+      alert("Visszamenőleges dátumra nem lehet foglalni!");
       return;
     }
 
-    if (!carBrand || !carModel || !carYear || !fuelType) {
-      alert("Tölts ki minden autó adatot!");
+    if (
+      !selectedService ||
+      !carBrand ||
+      !carModel ||
+      !carYear ||
+      !fuelType ||
+      (!isElectric && !engineSize)
+    ) {
+      alert("Tölts ki minden kötelező mezőt!");
       return;
     }
 
@@ -274,6 +351,7 @@ export default function Booking() {
       setCarYear("");
       setFuelType("");
       setEngineSize("");
+      setTouched({});
 
       setBookedTimes(prev => [...prev, selectedTime]);
 
@@ -297,6 +375,9 @@ export default function Booking() {
         <p className="text-gray-400 mt-4">
           Válassz dátumot és szabad időpontot.
         </p>
+        <p className="text-xs text-gray-500 mt-2">
+          <span className="text-red-500">*</span> Kötelező mező
+        </p>
       </section>
 
       <section className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
@@ -310,7 +391,8 @@ export default function Booking() {
               setSelectedDay("");
               setSelectedTime("");
             }}
-            className="bg-black p-3 rounded"
+            required
+            className="bg-black p-3 rounded border border-gray-800 focus:outline-none focus:ring-2 focus:ring-red-600"
           >
             {availableYears.map((y) => (
               <option key={y} value={y}>{y}</option>
@@ -323,25 +405,38 @@ export default function Booking() {
               setSelectedMonth(e.target.value);
               setSelectedDay("");
             }}
-            className="bg-black p-3 rounded"
+            onBlur={() => setFieldTouched("selectedMonth")}
+            required
+            aria-invalid={isFieldInvalid("selectedMonth")}
+            className={getSelectClassName("selectedMonth")}
           >
-            <option value="">Hónap</option>
-            {months.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
+            <option value="">Hónap *</option>
+            {months.map((m) => {
+              const monthNumber = Number(m.value);
+              const disabled = selectedYear === currentYear && monthNumber < currentMonth;
+              return (
+                <option key={m.value} value={m.value} disabled={disabled}>
+                  {m.label}
+                </option>
+              );
+            })}
           </select>
 
           <select
             value={selectedDay}
             disabled={!selectedMonth}
             onChange={(e) => setSelectedDay(e.target.value)}
-            className="bg-black p-3 rounded"
+            onBlur={() => setFieldTouched("selectedDay")}
+            required
+            aria-invalid={isFieldInvalid("selectedDay")}
+            className={getSelectClassName("selectedDay")}
           >
-            <option value="">Nap</option>
+            <option value="">Nap *</option>
             {days.map((d) => {
               const weekend = isWeekendDay(selectedYear, selectedMonth, d);
               const holiday = isHoliday(selectedYear, selectedMonth, d);
-              const disabled = weekend || holiday;
+              const inPast = isPastDate(selectedYear, selectedMonth, d);
+              const disabled = weekend || holiday || inPast;
 
               return (
                 <option
@@ -353,6 +448,7 @@ export default function Booking() {
                   {d}
                   {weekend ? " (hétvége)" : ""}
                   {holiday ? " (ünnepnap)" : ""}
+                  {inPast ? " (múltbeli nap)" : ""}
                 </option>
               );
             })}
@@ -396,12 +492,19 @@ export default function Booking() {
       )}
 
       <section className="bg-gray-900 p-4 sm:p-6 rounded-lg border border-gray-800">
+        <p className="text-gray-400 mb-3">
+          Ha valami probléma van gépjárműjével, kérjük átvizsgálásra foglaljon időpontot!
+        </p>
         <select
           value={selectedService}
           onChange={(e) => setSelectedService(e.target.value)}
-          className="bg-black p-3 rounded w-full"
+          onBlur={() => setFieldTouched("selectedService")}
+          required
+          aria-invalid={isFieldInvalid("selectedService")}
+          className={getSelectClassName("selectedService", "w-full")}
         >
-          <option value="">Válassz szolgáltatást</option>
+          
+          <option value="">Válassz szolgáltatást *</option>
 
           {services.map((service) => (
             <option key={service.id} value={service.id}>
@@ -419,13 +522,17 @@ export default function Booking() {
             const nextBrand = e.target.value;
             setCarBrand(nextBrand);
             setCarModel("");
+            setTouched((prev) => ({ ...prev, carModel: false }));
             if (!nextBrand) {
               setModels([]);
             }
           }}
-          className="bg-black p-3 rounded"
+          onBlur={() => setFieldTouched("carBrand")}
+          required
+          aria-invalid={isFieldInvalid("carBrand")}
+          className={getSelectClassName("carBrand")}
         >
-          <option value="">Válassz márkát</option>
+          <option value="">Válassz márkát *</option>
           {brands.length > 0 ? (
             brands.map((brand) => (
               <option key={brand.id} value={brand.id}>
@@ -441,10 +548,13 @@ export default function Booking() {
           value={carModel}
           onChange={(e) => setCarModel(e.target.value)}
           disabled={!carBrand}
-          className="bg-black p-3 rounded"
+          onBlur={() => setFieldTouched("carModel")}
+          required
+          aria-invalid={isFieldInvalid("carModel")}
+          className={getSelectClassName("carModel")}
         >
           <option value="">
-            {carBrand ? "Válassz típust" : "Előbb válassz márkát"}
+            {carBrand ? "Válassz típust *" : "Előbb válassz márkát *"}
           </option>
 
           {models.map((model) => (
@@ -457,9 +567,12 @@ export default function Booking() {
         <select
           value={carYear}
           onChange={(e) => setCarYear(e.target.value)}
-          className="bg-black p-3 rounded"
+          onBlur={() => setFieldTouched("carYear")}
+          required
+          aria-invalid={isFieldInvalid("carYear")}
+          className={getSelectClassName("carYear")}
         >
-          <option value="">Évjárat</option>
+          <option value="">Évjárat *</option>
           {carYears.map((year) => (
             <option key={year} value={year}>{year}</option>
           ))}
@@ -467,10 +580,16 @@ export default function Booking() {
 
         <select
           value={fuelType}
-          onChange={(e) => setFuelType(e.target.value)}
-          className="bg-black p-3 rounded"
+          onChange={(e) => {
+            setFuelType(e.target.value);
+            setTouched((prev) => ({ ...prev, engineSize: false }));
+          }}
+          onBlur={() => setFieldTouched("fuelType")}
+          required
+          aria-invalid={isFieldInvalid("fuelType")}
+          className={getSelectClassName("fuelType")}
         >
-          <option value="">Üzemanyag</option>
+          <option value="">Üzemanyag *</option>
 
           {fuelTypes.map((fuel) => (
             <option key={fuel.id} value={fuel.id}>
@@ -482,13 +601,16 @@ export default function Booking() {
         <select
           value={engineSize}
           onChange={(e) => setEngineSize(e.target.value)}
+          onBlur={() => setFieldTouched("engineSize")}
           disabled={isElectric}
-          className="bg-black p-3 rounded md:col-span-2"
+          required={!isElectric}
+          aria-invalid={isFieldInvalid("engineSize")}
+          className={getSelectClassName("engineSize", "md:col-span-2")}
         >
           <option value="">
             {isElectric
               ? "Elektromos – nincs köbcenti"
-              : "Köbcenti (liter)"}
+              : "Köbcenti (liter) *"}
           </option>
 
           {engineSizes.map((engine) => (

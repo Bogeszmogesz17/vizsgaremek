@@ -132,8 +132,6 @@ try {
             "Foglalás időpontja" => trim(($invoice["appointment_date"] ?? "") . " " . ($invoice["appointment_time"] ?? "")),
             "Autó" => trim(($invoice["car_brand"] ?? "") . " " . ($invoice["car_model"] ?? "")),
             "Ügyfél címe" => $invoice["user_address"] ?? "",
-            "Munkadíj" => number_format($workPrice, 0, ",", " ") . " Ft",
-            "Anyagköltség" => number_format($materialPrice, 0, ",", " ") . " Ft",
             "Végösszeg" => number_format($totalPrice, 0, ",", " ") . " Ft",
             "Kiállító" => $companyName,
             "Cím" => $companyAddress,

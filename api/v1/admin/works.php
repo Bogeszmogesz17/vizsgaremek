@@ -70,10 +70,10 @@ if (
     ], 400);
 }
 
-if ($appointmentDateTime < new DateTimeImmutable("now")) {
+if ($appointmentDateTime->setTime(0, 0) < new DateTimeImmutable("today")) {
     jsonResponse([
         "success" => false,
-        "message" => "Korábbi időpontra nem lehet foglalni"
+        "message" => "Korábbi dátumra nem lehet foglalni"
     ], 400);
 }
 
@@ -122,7 +122,7 @@ try {
         FROM work_process
         WHERE appointment_date = ?
           AND appointment_time = ?
-          AND status = 0
+          AND (status = 0 OR status IS NULL)
     ");
     $conflictStatement->execute([$date, $time]);
 

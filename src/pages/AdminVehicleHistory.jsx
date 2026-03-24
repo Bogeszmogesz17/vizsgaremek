@@ -239,14 +239,6 @@ export default function AdminVehicleHistory() {
                     <span className="font-medium break-words">{item.services || "-"}</span>
                   </p>
                   <p>
-                    <span className="text-gray-400">Munkadíj:</span>{" "}
-                    <span className="font-medium">{formatPrice(item.work_price)}</span>
-                  </p>
-                  <p>
-                    <span className="text-gray-400">Anyagköltség:</span>{" "}
-                    <span className="font-medium">{formatPrice(item.material_price)}</span>
-                  </p>
-                  <p>
                     <span className="text-gray-400">Összesen:</span>{" "}
                     <span className="font-medium text-red-400">{formatPrice(totalPrice)}</span>
                   </p>

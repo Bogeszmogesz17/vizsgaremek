@@ -448,6 +448,36 @@ export default function AdminDashboard() {
   const [workDate, setWorkDate] = useState("");
   const [workTime, setWorkTime] = useState("");
   const [confirmCancelId, setConfirmCancelId] = useState(null);
+  const getLocalTodayDate = () => {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().split("T")[0];
+  };
+  const minWorkDate = getLocalTodayDate();
+  const normalizeAppointmentTime = (value = "") => {
+    const [hours = "", minutes = ""] = String(value).split(":");
+    if (hours === "" || minutes === "") return "";
+    return `${hours.padStart(2, "0")}:${minutes.padStart(2, "0")}`;
+  };
+  const buildWorkSlotKey = (date, time) => {
+    const normalizedDate = String(date || "").trim();
+    const normalizedTime = normalizeAppointmentTime(time);
+    if (!normalizedDate || !normalizedTime) return "";
+    return `${normalizedDate}|${normalizedTime}`;
+  };
+  const occupiedWorkSlotKeys = new Set();
+  const registerOccupiedSlot = (item) => {
+    const slotKey = buildWorkSlotKey(item?.appointment_date, item?.appointment_time);
+    if (!slotKey) return;
+    occupiedWorkSlotKeys.add(slotKey);
+  };
+  bookings.forEach(registerOccupiedSlot);
+  works.forEach(registerOccupiedSlot);
+  const isWorkSlotOccupied = (date, time) =>
+    occupiedWorkSlotKeys.has(buildWorkSlotKey(date, time));
+  const selectedWorkSlotKey = buildWorkSlotKey(workDate, workTime);
+  const isSelectedWorkSlotOccupied =
+    selectedWorkSlotKey !== "" && occupiedWorkSlotKeys.has(selectedWorkSlotKey);
 
   const [msg, setMsg] = useState("");
   const [msgType, setMsgType] = useState("");
@@ -1006,6 +1036,52 @@ export default function AdminDashboard() {
       console.error("Additional services load error:", err);
     }
   };
+  const openAdditionalWorkForm = (booking) => {
+    setSelectedBooking(booking);
+    setWorkDate(minWorkDate);
+    setWorkTime("");
+    setShowWorkForm(true);
+    loadAdditionalWorkServices();
+    loadWorks();
+  };
+  const closeAdditionalWorkForm = () => {
+    setShowWorkForm(false);
+    setSelectedBooking(null);
+    setSelectedAdditionalServiceId("");
+    setWorkDate("");
+    setWorkTime("");
+  };
+  const handleWorkDateChange = (nextDate) => {
+    if (!nextDate) {
+      setWorkDate("");
+      return;
+    }
+
+    if (nextDate < minWorkDate) {
+      setWorkDate(minWorkDate);
+      return;
+    }
+
+    if (workTime && isWorkSlotOccupied(nextDate, workTime)) {
+      alert("Ez az időpont már foglalt. Válassz másik dátumot vagy időpontot.");
+      return;
+    }
+
+    setWorkDate(nextDate);
+  };
+  const handleWorkTimeChange = (nextTime) => {
+    if (!nextTime) {
+      setWorkTime("");
+      return;
+    }
+
+    if (workDate && isWorkSlotOccupied(workDate, nextTime)) {
+      alert("Ez az időpont már foglalt. Válassz másik időpontot.");
+      return;
+    }
+
+    setWorkTime(nextTime);
+  };
 
   const submitAdditionalWork = async () => {
     if (!selectedBooking) {
@@ -1018,14 +1094,19 @@ export default function AdminDashboard() {
     }
 
     const selectedDateTime = new Date(`${workDate}T${workTime}`);
-    const now = new Date();
     if (Number.isNaN(selectedDateTime.getTime())) {
       alert("Érvénytelen dátum vagy időpont.");
       return;
     }
+    const selectedDate = new Date(`${workDate}T00:00:00`);
+    const today = new Date(`${minWorkDate}T00:00:00`);
+    if (selectedDate < today) {
+      alert("Korábbi dátumra nem lehet foglalni.");
+      return;
+    }
 
-    if (selectedDateTime < now) {
-      alert("Korábbi időpontra nem lehet foglalni.");
+    if (isWorkSlotOccupied(workDate, workTime)) {
+      alert("Ez az időpont már foglalt. Válassz másik időpontot.");
       return;
     }
 
@@ -1051,10 +1132,7 @@ export default function AdminDashboard() {
         return;
       }
 
-      setShowWorkForm(false);
-      setSelectedAdditionalServiceId("");
-      setWorkDate("");
-      setWorkTime("");
+      closeAdditionalWorkForm();
 
       await loadWorks();
       await loadBookings();
@@ -1190,11 +1268,7 @@ export default function AdminDashboard() {
                     <div className="flex flex-wrap gap-2 pt-2">
                       {isInspectionBooking(b.service) && (
                         <button
-                          onClick={() => {
-                            setSelectedBooking(b);
-                            setShowWorkForm(true);
-                            loadAdditionalWorkServices();
-                          }}
+                          onClick={() => openAdditionalWorkForm(b)}
                           className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded text-sm"
                         >
                           További időpont
@@ -1266,11 +1340,7 @@ export default function AdminDashboard() {
                           <div className="flex justify-center gap-2 flex-wrap">
                             {isInspectionBooking(b.service) && (
                               <button
-                                onClick={() => {
-                                  setSelectedBooking(b);
-                                  setShowWorkForm(true);
-                                  loadAdditionalWorkServices();
-                                }}
+                                onClick={() => openAdditionalWorkForm(b)}
                                 className="bg-yellow-600 hover:bg-yellow-700 px-3 py-1 rounded"
                               >
                                 További időpont
@@ -1722,9 +1792,9 @@ export default function AdminDashboard() {
             <input
               type="date"
               value={workDate}
-              min={new Date().toISOString().split("T")[0]}
+              min={minWorkDate}
               max="2030-12-31"
-              onChange={e => setWorkDate(e.target.value)}
+              onChange={(e) => handleWorkDateChange(e.target.value)}
               className="w-full p-2 bg-black border border-gray-700 rounded mb-3"
             />
 
@@ -1732,16 +1802,18 @@ export default function AdminDashboard() {
               type="time"
               value={workTime}
               step="1800"
-              onChange={e => setWorkTime(e.target.value)}
-              className="w-full p-2 bg-black border border-gray-700 rounded mb-4"
+              onChange={(e) => handleWorkTimeChange(e.target.value)}
+              className="w-full p-2 bg-black border border-gray-700 rounded mb-2"
             />
+            {isSelectedWorkSlotOccupied && (
+              <p className="text-sm text-red-400 mb-3">
+                Ez az időpont már foglalt, válassz másikat.
+              </p>
+            )}
 
             <div className="flex flex-col sm:flex-row sm:justify-end gap-3">
               <button
-                onClick={() => {
-                  setShowWorkForm(false);
-                  setSelectedAdditionalServiceId("");
-                }}
+                onClick={closeAdditionalWorkForm}
                 className="px-4 py-2 bg-gray-700 rounded w-full sm:w-auto"
               >
                 Mégse
@@ -1749,7 +1821,8 @@ export default function AdminDashboard() {
 
               <button
                 onClick={submitAdditionalWork}
-                className="px-4 py-2 bg-red-600 rounded w-full sm:w-auto"
+                disabled={isSelectedWorkSlotOccupied}
+                className="px-4 py-2 bg-red-600 rounded w-full sm:w-auto disabled:opacity-60"
               >
                 Mentés
               </button>

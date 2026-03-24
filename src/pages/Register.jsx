@@ -172,23 +172,25 @@ export default function Register() {
             required
           />
 
-          <div className="relative">
-            <input
-              type={showPassword ? "text" : "password"}
-              placeholder="Jelszó *"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
-              required
-            />
+          <div>
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Jelszó *"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                className="w-full p-3 bg-black rounded border border-gray-700 pr-12"
+                required
+              />
 
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
-            >
-              {showPassword ? "🙈" : "👁️"}
-            </button>
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+              >
+                {showPassword ? "🙈" : "👁️"}
+              </button>
+            </div>
             <p className="mt-2 text-xs text-gray-400">
               Jelszókövetelmény: legalább 8 karakter, minimum 1 nagybetű és 1 szám.
             </p>
