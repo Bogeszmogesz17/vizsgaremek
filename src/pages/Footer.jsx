@@ -43,7 +43,7 @@ export default function Footer() {
           <div className="text-gray-400 text-sm space-y-1">
             <p>📍 2699, Szügy, Béke út 9.</p>
             <p>📞 +36 30 123 4567</p>
-            <p>✉️ info@dupladugattyu.hu</p>
+            <p>✉️ dupladugattyu.info@gmail.com</p>
             <p className="pt-2 text-red-500 font-medium">H-P: 08:00 - 16:00</p>
           </div>
         </div>
