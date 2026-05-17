@@ -7,7 +7,7 @@ $data = readJsonInput();
 $email = strtolower(trim((string)($data["email"] ?? "")));
 $password = (string)($data["password"] ?? "");
 $role = trim((string)($data["role"] ?? "user"));
-$adminEmail = "bogibodis6@gmail.com";
+$adminEmail = "dupldugattyu.info@gmail.com";
 
 if ($email === "" || $password === "") {
     jsonResponse([

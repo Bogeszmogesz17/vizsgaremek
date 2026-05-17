@@ -207,7 +207,7 @@ LIMIT 1
         $mail->CharSet = 'UTF-8';
         $mail->Encoding = 'base64';
 
-        $mail->setFrom('bogibodis6@gmail.com', 'Dupla Dugattyú Műhely');
+        $mail->setFrom(MAIL_USER, 'Dupla Dugattyú Műhely');
         $mail->addAddress($_SESSION["email"], $_SESSION["name"]);
 
         $mail->isHTML(true);

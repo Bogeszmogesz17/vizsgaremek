@@ -26,6 +26,7 @@ if ($method === "GET") {
           AND (wp.status = 0 OR wp.status IS NULL)
         ORDER BY wp.appointment_date DESC, wp.appointment_time DESC
     ");
+
     $statement->execute([$userId]);
 
     jsonResponse([
@@ -35,6 +36,7 @@ if ($method === "GET") {
 }
 
 $data = readJsonInput();
+
 $requiredFields = [
     "appointment_date",
     "appointment_time",
@@ -95,6 +97,7 @@ try {
           AND (engine_size_id = ? OR engine_size_id IS NULL)
         LIMIT 1
     ");
+
     $vehicleSearchStatement->execute([
         $userId,
         $carModelId,
@@ -102,13 +105,21 @@ try {
         $fuelTypeId,
         $engineSizeId
     ]);
+
     $vehicleId = $vehicleSearchStatement->fetchColumn();
 
     if (!$vehicleId) {
         $vehicleInsertStatement = $pdo->prepare("
-            INSERT INTO vehicles (user_id, model_id, year, fuel_type_id, engine_size_id, active)
-            VALUES (?, ?, ?, ?, ?, 1)
+            INSERT INTO vehicles (
+                user_id,
+                model_id,
+                year,
+                fuel_type_id,
+                engine_size_id,
+                active
+            ) VALUES (?, ?, ?, ?, ?, 1)
         ");
+
         $vehicleInsertStatement->execute([
             $userId,
             $carModelId,
@@ -116,6 +127,7 @@ try {
             $fuelTypeId,
             $engineSizeId
         ]);
+
         $vehicleId = $pdo->lastInsertId();
     }
 
@@ -126,10 +138,15 @@ try {
           AND appointment_time = ?
           AND (status = 0 OR status IS NULL)
     ");
-    $conflictStatement->execute([$appointmentDate, $appointmentTime]);
+
+    $conflictStatement->execute([
+        $appointmentDate,
+        $appointmentTime
+    ]);
 
     if ((int)$conflictStatement->fetchColumn() > 0) {
         $pdo->rollBack();
+
         jsonResponse([
             "success" => false,
             "message" => "Ez az időpont már foglalt"
@@ -149,7 +166,13 @@ try {
             invoices_id
         ) VALUES (?, ?, ?, 0, NOW(), 0, ?, NULL, NULL)
     ");
-    $workProcessInsertStatement->execute([$vehicleId, $appointmentDate, $appointmentTime, $serviceId]);
+
+    $workProcessInsertStatement->execute([
+        $vehicleId,
+        $appointmentDate,
+        $appointmentTime,
+        $serviceId
+    ]);
 
     $carStatement = $pdo->prepare("
         SELECT b.brand_name AS brand, m.model_name AS model
@@ -158,8 +181,13 @@ try {
         WHERE m.id = ?
         LIMIT 1
     ");
+
     $carStatement->execute([$carModelId]);
-    $carData = $carStatement->fetch(PDO::FETCH_ASSOC) ?: ["brand" => "", "model" => ""];
+
+    $carData = $carStatement->fetch(PDO::FETCH_ASSOC) ?: [
+        "brand" => "",
+        "model" => ""
+    ];
 
     $pdo->commit();
 
@@ -181,6 +209,7 @@ try {
 
         $mail->isHTML(true);
         $mail->Subject = "Sikeres foglalás";
+
         $mail->Body = renderWorkshopEmail(
             "Sikeres foglalás",
             "A foglalásod sikeresen rögzítésre került.",
@@ -201,6 +230,7 @@ try {
         "success" => true,
         "message" => "Sikeres foglalás"
     ], 201);
+
 } catch (Throwable $throwable) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
@@ -208,6 +238,7 @@ try {
 
     jsonResponse([
         "success" => false,
-        "message" => "Sikertelen foglalás"
+        "message" => "Sikertelen foglalás",
+        "error" => $throwable->getMessage()
     ], 500);
 }

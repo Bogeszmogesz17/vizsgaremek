@@ -1,5 +1,5 @@
 ﻿<?php
 
-define("MAIL_USER", "bogibodis6@gmail.com");
-define("MAIL_PASS", "kqzp piki taum nymc");
+define("MAIL_USER", "dupldugattyu.info@gmail.com");
+define("MAIL_PASS", "mnrb fgdq ubrk xqac");
 ?>
