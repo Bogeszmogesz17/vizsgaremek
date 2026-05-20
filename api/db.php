@@ -18,7 +18,8 @@ try {
     http_response_code(500);
     echo json_encode([
         "success" => false,
-        "message" => "Adatbázis kapcsolat hiba"
+        "message" => "Adatbázis kapcsolat hiba",
+        "error" => $e->getMessage()
     ]);
     exit;
 }

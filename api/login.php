@@ -18,7 +18,7 @@ if (!$data || empty($data["email"]) || empty($data["password"])) {
 $email = trim($data["email"]);
 $password = $data["password"];
 
-if ($email != "bogibodis6@gmail.com") {
+if ($email != "dupldugattyu.info@gmail.com") {
 
     $stmt = $pdo->prepare("
         SELECT id, name, email, password

@@ -20,7 +20,7 @@ if (
 $userEmail = trim($data["email"]); // frontend mező = username
 $password = $data["password"];
 
-if($userEmail == "bogibodis6@gmail.com") {
+if($userEmail == "dupldugattyu.info@gmail.com") {
 
 try {
     $stmt = $pdo->prepare("

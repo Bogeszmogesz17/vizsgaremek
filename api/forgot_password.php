@@ -43,6 +43,6 @@ $stmt->execute([$token, $user["id"]]);
 
 echo json_encode([
     "success" => true,
-    "message" => "Reset token generálva",
-    "token" => $token
+    "message" => "Reset link elküldve",
+    "redirect" => "http://localhost:5173/reset-password?token=" . $token
 ]);
