@@ -609,8 +609,8 @@ export default function Booking() {
         >
           <option value="">
             {isElectric
-              ? "Elektromos – nincs köbcenti"
-              : "Köbcenti (liter) *"}
+              ? "Elektromos – nincs hengerűrtartalom"
+              : "Hengerűrtartalom (liter) *"}
           </option>
 
           {engineSizes.map((engine) => (

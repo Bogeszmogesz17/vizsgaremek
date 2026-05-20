@@ -15,6 +15,7 @@ export default function Register() {
   const [postalCode, setPostalCode] = useState("");
   const [settlementName, setSettlementName] = useState("");
   const [settlementId, setSettlementId] = useState("");
+  const [settlementOptions, setSettlementOptions] = useState([]);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -32,15 +33,37 @@ export default function Register() {
         if (!data.success) {
           setSettlementName("");
           setSettlementId("");
+          setSettlementOptions([]);
+          return;
+        }
+        const settlements = Array.isArray(data.settlements)
+          ? data.settlements
+          : data.settlement
+            ? [data.settlement]
+            : [];
+
+        if (!settlements.length) {
+          setSettlementName("");
+          setSettlementId("");
+          setSettlementOptions([]);
           return;
         }
 
-        setSettlementName(data.settlement.settlement_name);
-        setSettlementId(data.settlement.id);
+        setSettlementOptions(settlements);
+
+        if (settlements.length === 1) {
+          setSettlementName(settlements[0].settlement_name);
+          setSettlementId(String(settlements[0].id));
+          return;
+        }
+
+        setSettlementName("");
+        setSettlementId("");
       })
       .catch(() => {
         setSettlementName("");
         setSettlementId("");
+        setSettlementOptions([]);
       });
   }, [postalCode]);
 
@@ -149,19 +172,43 @@ export default function Register() {
               if (nextPostalCode.length !== 4) {
                 setSettlementName("");
                 setSettlementId("");
+                setSettlementOptions([]);
               }
             }}
             className="w-full p-3 bg-black rounded"
             required
           />
 
-          <input
-            type="text"
-            placeholder="Település *"
-            value={settlementName}
-            disabled
-            className="w-full p-3 bg-gray-800 rounded text-gray-400"
-          />
+          {settlementOptions.length > 1 ? (
+            <select
+              value={settlementId}
+              onChange={(event) => {
+                const selectedId = event.target.value;
+                setSettlementId(selectedId);
+                const selectedSettlement = settlementOptions.find(
+                  settlement => String(settlement.id) === selectedId
+                );
+                setSettlementName(selectedSettlement ? selectedSettlement.settlement_name : "");
+              }}
+              className="w-full p-3 bg-black rounded"
+              required
+            >
+              <option value="">Válassz települést *</option>
+              {settlementOptions.map(settlement => (
+                <option key={settlement.id} value={String(settlement.id)}>
+                  {settlement.settlement_name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type="text"
+              placeholder="Település *"
+              value={settlementName}
+              disabled
+              className="w-full p-3 bg-gray-800 rounded text-gray-400"
+            />
+          )}
 
           <input
             type="text"

@@ -53,7 +53,7 @@ const sanitizeWorkNoteDescription = (value = "") => {
   if (!rawDescription) return "";
 
   const withoutMeta = rawDescription
-    .replace(/\s*\|\|LABOR_META:\d+\s*$/iu, "")
+    .replace(/\s*(?:\|\|(LABOR_META|SERVICE_META|L|S):\d+(?::\d+)?\s*)+$/iu, "")
     .trim();
   if (!withoutMeta || isLaborOnlyLabel(withoutMeta)) return "";
 
@@ -1613,26 +1613,29 @@ export default function AdminDashboard() {
                           placeholder="Szolgáltatás megnevezése"
                           className="sm:col-span-2 w-full bg-black border border-gray-700 rounded px-3 py-2 disabled:opacity-60"
                         />
-                        <input
-                          type="number"
-                          min="1"
-                          value={mainInvoiceItem.quantity}
-                          disabled={mainInvoiceItem.is_fixed_price}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) =>
-                            updateInvoiceItem(
-                              mainInvoiceItem.row_id,
-                              "quantity",
-                              e.target.value
-                            )
-                          }
-                          onBlur={() => {
-                            if (mainInvoiceItem.quantity === "") {
-                              updateInvoiceItem(mainInvoiceItem.row_id, "quantity", "1");
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Mennyiség</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={mainInvoiceItem.quantity}
+                            disabled={mainInvoiceItem.is_fixed_price}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateInvoiceItem(
+                                mainInvoiceItem.row_id,
+                                "quantity",
+                                e.target.value
+                              )
                             }
-                          }}
-                          className="w-full bg-black border border-gray-700 rounded px-3 py-2 disabled:opacity-60"
-                        />
+                            onBlur={() => {
+                              if (mainInvoiceItem.quantity === "") {
+                                updateInvoiceItem(mainInvoiceItem.row_id, "quantity", "1");
+                              }
+                            }}
+                            className="w-full bg-black border border-gray-700 rounded px-3 py-2 disabled:opacity-60"
+                          />
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                         <div>
@@ -1682,25 +1685,28 @@ export default function AdminDashboard() {
                           }
                           className="sm:col-span-2 w-full bg-black border border-gray-700 rounded px-3 py-2"
                         />
-                        <input
-                          type="number"
-                          min="1"
-                          value={laborInvoiceItem.quantity}
-                          onFocus={(e) => e.target.select()}
-                          onChange={(e) =>
-                            updateInvoiceItem(
-                              laborInvoiceItem.row_id,
-                              "quantity",
-                              e.target.value
-                            )
-                          }
-                          onBlur={() => {
-                            if (laborInvoiceItem.quantity === "") {
-                              updateInvoiceItem(laborInvoiceItem.row_id, "quantity", "1");
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">Mennyiség</label>
+                          <input
+                            type="number"
+                            min="1"
+                            value={laborInvoiceItem.quantity}
+                            onFocus={(e) => e.target.select()}
+                            onChange={(e) =>
+                              updateInvoiceItem(
+                                laborInvoiceItem.row_id,
+                                "quantity",
+                                e.target.value
+                              )
                             }
-                          }}
-                          className="w-full bg-black border border-gray-700 rounded px-3 py-2"
-                        />
+                            onBlur={() => {
+                              if (laborInvoiceItem.quantity === "") {
+                                updateInvoiceItem(laborInvoiceItem.row_id, "quantity", "1");
+                              }
+                            }}
+                            className="w-full bg-black border border-gray-700 rounded px-3 py-2"
+                          />
+                        </div>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                         <div>

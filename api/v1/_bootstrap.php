@@ -56,6 +56,30 @@ function requirePositiveInt($value, string $message): int
     return $intValue;
 }
 
+function getTableColumnCharacterLimit(PDO $pdo, string $tableName, string $columnName, int $fallback = 255): int
+{
+    $safeFallback = max(1, $fallback);
+
+    try {
+        $statement = $pdo->prepare("
+            SELECT CHARACTER_MAXIMUM_LENGTH
+            FROM information_schema.COLUMNS
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+              AND COLUMN_NAME = ?
+            LIMIT 1
+        ");
+        $statement->execute([$tableName, $columnName]);
+        $length = (int)$statement->fetchColumn();
+        if ($length > 0) {
+            return $length;
+        }
+    } catch (Throwable $throwable) {
+    }
+
+    return $safeFallback;
+}
+
 function normalizeComparableHungarianText(string $value): string
 {
     $normalized = mb_strtolower(trim($value), "UTF-8");
@@ -92,12 +116,44 @@ function parseWorkDescriptionWithLaborMeta(
 ): array {
     $description = trim($rawDescription);
     $laborPrice = 0;
+    $laborQuantity = 1;
     $hasLabor = false;
+    $serviceQuantity = 1;
+    $serviceUnitPrice = 0;
 
-    if ($description !== "" && preg_match("/\s*\|\|LABOR_META:(\d+)\s*$/u", $description, $matches) === 1) {
-        $hasLabor = true;
-        $laborPrice = max(0, (int)$matches[1]);
-        $description = trim((string)preg_replace("/\s*\|\|LABOR_META:\d+\s*$/u", "", $description));
+    while (
+        $description !== "" &&
+        preg_match("/\s*\|\|(LABOR_META|SERVICE_META|L|S):(\d+)(?::(\d+))?\s*$/u", $description, $matches) === 1
+    ) {
+        $metaType = strtoupper((string)($matches[1] ?? ""));
+        if ($metaType === "L") {
+            $metaType = "LABOR_META";
+        } elseif ($metaType === "S") {
+            $metaType = "SERVICE_META";
+        }
+        $primaryValue = max(0, (int)($matches[2] ?? 0));
+        $secondaryValue = isset($matches[3]) && $matches[3] !== ""
+            ? max(0, (int)$matches[3])
+            : null;
+
+        if ($metaType === "LABOR_META") {
+            $hasLabor = true;
+            $laborPrice = $primaryValue;
+            if ($secondaryValue !== null) {
+                $laborQuantity = max(1, $secondaryValue);
+            }
+        } elseif ($metaType === "SERVICE_META") {
+            $serviceQuantity = max(1, $primaryValue);
+            if ($secondaryValue !== null) {
+                $serviceUnitPrice = $secondaryValue;
+            }
+        }
+
+        $description = trim((string)preg_replace(
+            "/\s*\|\|(LABOR_META|SERVICE_META|L|S):\d+(?::\d+)?\s*$/u",
+            "",
+            $description
+        ));
     }
 
     if ($description !== "") {
@@ -145,25 +201,32 @@ function parseWorkDescriptionWithLaborMeta(
     return [
         "description" => $description,
         "labor_price" => $laborPrice,
-        "has_labor" => $hasLabor
+        "labor_quantity" => $laborQuantity,
+        "has_labor" => $hasLabor,
+        "service_quantity" => $serviceQuantity,
+        "service_unit_price" => $serviceUnitPrice
     ];
 }
 
 function buildWorkDescriptionWithLaborMeta(
     string $description,
     int $laborPrice = 0,
-    bool $hasLabor = false
+    bool $hasLabor = false,
+    int $laborQuantity = 1,
+    int $serviceQuantity = 1,
+    int $serviceUnitPrice = 0
 ): string {
     $safeDescription = trim($description);
     if ($safeDescription === "") {
         $safeDescription = "Munkafolyamat";
     }
-
-    if (!$hasLabor) {
-        return $safeDescription;
+    if ($serviceQuantity > 1) {
+        $safeDescription .= " ||S:" . max(1, $serviceQuantity) . ":" . max(0, $serviceUnitPrice);
     }
-
-    return $safeDescription . " ||LABOR_META:" . max(0, $laborPrice);
+    if ($hasLabor) {
+        $safeDescription .= " ||L:" . max(0, $laborPrice) . ":" . max(1, $laborQuantity);
+    }
+    return $safeDescription;
 }
 
 function getPositiveIntQueryParam(string $name): ?int

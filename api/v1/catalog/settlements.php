@@ -9,12 +9,12 @@ if ($postCode !== "") {
         SELECT id, settlement_name
         FROM settlement
         WHERE post_code = ?
-        LIMIT 1
+        ORDER BY settlement_name ASC
     ");
     $statement->execute([$postCode]);
-    $result = $statement->fetch(PDO::FETCH_ASSOC);
+    $results = $statement->fetchAll(PDO::FETCH_ASSOC);
 
-    if (!$result) {
+    if (!$results) {
         jsonResponse([
             "success" => false,
             "message" => "Nincs ilyen irányítószám"
@@ -23,7 +23,8 @@ if ($postCode !== "") {
 
     jsonResponse([
         "success" => true,
-        "settlement" => $result
+        "settlement" => $results[0],
+        "settlements" => $results
     ]);
 }
 

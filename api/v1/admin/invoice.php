@@ -71,7 +71,10 @@ if ($method === "GET") {
     }
 
     $laborPrice = max(0, (int)($parsedDescription["labor_price"] ?? 0));
+    $laborQuantity = max(1, (int)($parsedDescription["labor_quantity"] ?? 1));
     $hasLabor = !empty($parsedDescription["has_labor"]);
+    $serviceQuantity = max(1, (int)($parsedDescription["service_quantity"] ?? 1));
+    $serviceUnitPriceMeta = max(0, (int)($parsedDescription["service_unit_price"] ?? 0));
     $serviceItemPrice = $storedTotalPrice;
 
     if ($storedTotalPrice === 0 && $servicePrice > 0) {
@@ -80,20 +83,33 @@ if ($method === "GET") {
         $serviceItemPrice = max(0, $storedTotalPrice - $laborPrice);
     }
 
+    $serviceUnitPrice = $serviceItemPrice;
+    if ($serviceQuantity > 1) {
+        if ($serviceUnitPriceMeta > 0) {
+            $serviceUnitPrice = $serviceUnitPriceMeta;
+        } elseif ($serviceItemPrice > 0) {
+            $serviceUnitPrice = (int)round($serviceItemPrice / $serviceQuantity);
+        }
+    }
+
     $items = [[
         "description" => $serviceDescription,
-        "quantity" => 1,
-        "unit_price" => $serviceItemPrice,
+        "quantity" => $serviceQuantity,
+        "unit_price" => $serviceUnitPrice,
         "line_total" => $serviceItemPrice,
         "is_fixed_price" => $isFixedPriceBooking,
         "item_type" => "service"
     ]];
 
     if ($hasLabor) {
+        $laborUnitPrice = $laborPrice;
+        if ($laborQuantity > 0 && $laborPrice > 0) {
+            $laborUnitPrice = (int)round($laborPrice / $laborQuantity);
+        }
         $items[] = [
             "description" => "Munkadíj",
-            "quantity" => 1,
-            "unit_price" => $laborPrice,
+            "quantity" => $laborQuantity,
+            "unit_price" => $laborUnitPrice,
             "line_total" => $laborPrice,
             "is_fixed_price" => 0,
             "item_type" => "labor"
@@ -129,7 +145,11 @@ $sanitizedItems = [];
 $netTotal = 0;
 $serviceTotal = 0;
 $laborTotal = 0;
+$laborQuantity = 0;
 $serviceDescriptions = [];
+$serviceItemCount = 0;
+$serviceMetaQuantity = 1;
+$serviceMetaUnitPrice = 0;
 $hasLaborItem = false;
 $hasFixedPriceServiceItem = false;
 
@@ -181,12 +201,14 @@ foreach ($itemsInput as $item) {
 
     if ($itemType === "labor") {
         $hasLaborItem = true;
+        $laborQuantity += $quantity;
         $laborTotal += $lineTotal;
         $isFixedPrice = 0;
         $description = "Munkadíj";
     } else {
         if ($cleanServiceDescription === "" && $serviceItemContainsLabor) {
             $hasLaborItem = true;
+            $laborQuantity += $quantity;
             $laborTotal += $lineTotal;
             $isFixedPrice = 0;
             $itemType = "labor";
@@ -197,6 +219,11 @@ foreach ($itemsInput as $item) {
     if ($itemType === "service") {
         $serviceTotal += $lineTotal;
         $serviceDescriptions[] = $description;
+        $serviceItemCount++;
+        if ($serviceItemCount === 1) {
+            $serviceMetaQuantity = $quantity;
+            $serviceMetaUnitPrice = $unitPrice;
+        }
         if ($isFixedPrice === 1) {
             $hasFixedPriceServiceItem = true;
         }
@@ -236,8 +263,20 @@ if ($mainDescription === "") {
 }
 
 $laborTotal = max(0, $laborTotal);
-$metaSuffix = $hasLaborItem ? " ||LABOR_META:" . $laborTotal : "";
-$maxDescriptionLength = 255 - mb_strlen($metaSuffix);
+$safeLaborQuantity = max(1, $laborQuantity);
+$shouldStoreServiceMeta = $serviceItemCount === 1 && $serviceMetaQuantity > 1;
+$descriptionColumnLimit = getTableColumnCharacterLimit(
+    $pdo,
+    "work_process",
+    "additional_work_description",
+    255
+);
+$serviceMetaSuffix = $shouldStoreServiceMeta
+    ? " ||S:" . $serviceMetaQuantity . ":" . $serviceMetaUnitPrice
+    : "";
+$laborMetaSuffix = $hasLaborItem ? " ||L:" . $laborTotal . ":" . $safeLaborQuantity : "";
+$metaSuffix = $serviceMetaSuffix . $laborMetaSuffix;
+$maxDescriptionLength = $descriptionColumnLimit - mb_strlen($metaSuffix);
 if ($maxDescriptionLength < 1) {
     $maxDescriptionLength = 1;
 }
@@ -245,26 +284,16 @@ if (mb_strlen($mainDescription) > $maxDescriptionLength) {
     $mainDescription = mb_substr($mainDescription, 0, $maxDescriptionLength);
 }
 
-$storedDescription = buildWorkDescriptionWithLaborMeta($mainDescription, $laborTotal, $hasLaborItem);
+$storedDescription = buildWorkDescriptionWithLaborMeta(
+    $mainDescription,
+    $laborTotal,
+    $hasLaborItem,
+    $safeLaborQuantity,
+    $shouldStoreServiceMeta ? $serviceMetaQuantity : 1,
+    $shouldStoreServiceMeta ? $serviceMetaUnitPrice : 0
+);
 
-$storedItems = [[
-    "description" => $mainDescription,
-    "quantity" => 1,
-    "unit_price" => $serviceTotal,
-    "line_total" => $serviceTotal,
-    "is_fixed_price" => $hasFixedPriceServiceItem ? 1 : 0,
-    "item_type" => "service"
-]];
-if ($hasLaborItem) {
-    $storedItems[] = [
-        "description" => "Munkadíj",
-        "quantity" => 1,
-        "unit_price" => $laborTotal,
-        "line_total" => $laborTotal,
-        "is_fixed_price" => 0,
-        "item_type" => "labor"
-    ];
-}
+$storedItems = $sanitizedItems;
 
 try {
     $pdo->beginTransaction();
