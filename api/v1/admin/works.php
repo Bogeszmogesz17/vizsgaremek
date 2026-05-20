@@ -20,7 +20,8 @@ if ($method === "GET") {
             wp.appointment_time,
             wp.work_price,
             0 AS material_price,
-            COALESCE(NULLIF(TRIM(wp.additional_work_description), ''), COALESCE(s.name, '')) AS description,
+            wp.additional_work_description,
+            COALESCE(s.name, '') AS service_name,
             u.name AS user_name,
             u.email AS user_email,
             u.phone_number,
@@ -38,10 +39,38 @@ if ($method === "GET") {
           AND COALESCE(s.is_bookable, 1) = 0
         ORDER BY wp.appointment_date ASC, wp.appointment_time ASC
     ");
+    $works = $statement->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($works as &$workItem) {
+        $parsedDescription = parseWorkDescriptionWithLaborMeta(
+            (string)($workItem["additional_work_description"] ?? ""),
+            max(0, (int)($workItem["work_price"] ?? 0)),
+            0
+        );
+        $description = trim((string)($parsedDescription["description"] ?? ""));
+        $descriptionWithoutLaborLabel = preg_replace(
+            '/(?:[,;]\s*)?(munkad[íi]j(\s*\(labor\))?|labor)\s*$/iu',
+            '',
+            $description
+        );
+        if (is_string($descriptionWithoutLaborLabel)) {
+            $description = trim($descriptionWithoutLaborLabel);
+        }
+
+        if ($description !== "" && isLaborDescriptionLabel($description)) {
+            $description = "";
+        }
+        if ($description === "") {
+            $description = trim((string)($workItem["service_name"] ?? ""));
+        }
+
+        $workItem["description"] = $description;
+        unset($workItem["additional_work_description"], $workItem["service_name"]);
+    }
+    unset($workItem);
 
     jsonResponse([
         "success" => true,
-        "works" => $statement->fetchAll(PDO::FETCH_ASSOC)
+        "works" => $works
     ]);
 }
 

@@ -20,15 +20,13 @@ if ($method === "GET") {
             wp.appointment_time,
             wp.work_price,
             wp.invoices_id,
+            wp.additional_work_description,
             COALESCE(s.price, 0) AS service_price,
             CASE
                 WHEN COALESCE(s.is_bookable, 1) = 1 THEN 1
                 ELSE 0
             END AS is_fixed_price_booking,
-            COALESCE(
-                NULLIF(TRIM(wp.additional_work_description), ''),
-                COALESCE(s.name, 'Munkafolyamat')
-            ) AS service_name,
+            COALESCE(s.name, 'Munkafolyamat') AS default_service_name,
             u.name AS user_name,
             u.email AS user_email,
             u.phone_number,
@@ -55,18 +53,56 @@ if ($method === "GET") {
         ], 404);
     }
 
-    $defaultDescription = trim((string)($work["service_name"] ?? "Munkafolyamat"));
-    $storedWorkPrice = max(0, (int)($work["work_price"] ?? 0));
+    $storedTotalPrice = max(0, (int)($work["work_price"] ?? 0));
     $servicePrice = max(0, (int)($work["service_price"] ?? 0));
     $isFixedPriceBooking = !empty($work["is_fixed_price_booking"]) ? 1 : 0;
-    $defaultTotal = $storedWorkPrice > 0 ? $storedWorkPrice : $servicePrice;
+    $parsedDescription = parseWorkDescriptionWithLaborMeta(
+        (string)($work["additional_work_description"] ?? ""),
+        $storedTotalPrice,
+        $servicePrice
+    );
+
+    $serviceDescription = trim((string)($parsedDescription["description"] ?? ""));
+    if ($serviceDescription === "") {
+        $serviceDescription = trim((string)($work["default_service_name"] ?? "Munkafolyamat"));
+    }
+    if ($serviceDescription === "") {
+        $serviceDescription = "Munkafolyamat";
+    }
+
+    $laborPrice = max(0, (int)($parsedDescription["labor_price"] ?? 0));
+    $hasLabor = !empty($parsedDescription["has_labor"]);
+    $serviceItemPrice = $storedTotalPrice;
+
+    if ($storedTotalPrice === 0 && $servicePrice > 0) {
+        $serviceItemPrice = $servicePrice;
+    } elseif ($hasLabor && $laborPrice > 0) {
+        $serviceItemPrice = max(0, $storedTotalPrice - $laborPrice);
+    }
+
     $items = [[
-        "description" => $defaultDescription !== "" ? $defaultDescription : "Munkafolyamat",
+        "description" => $serviceDescription,
         "quantity" => 1,
-        "unit_price" => $defaultTotal,
-        "line_total" => $defaultTotal,
-        "is_fixed_price" => $isFixedPriceBooking
+        "unit_price" => $serviceItemPrice,
+        "line_total" => $serviceItemPrice,
+        "is_fixed_price" => $isFixedPriceBooking,
+        "item_type" => "service"
     ]];
+
+    if ($hasLabor) {
+        $items[] = [
+            "description" => "Munkadíj",
+            "quantity" => 1,
+            "unit_price" => $laborPrice,
+            "line_total" => $laborPrice,
+            "is_fixed_price" => 0,
+            "item_type" => "labor"
+        ];
+    }
+
+    $work["service_name"] = $serviceDescription;
+    $work["labor_price"] = $laborPrice;
+    unset($work["default_service_name"], $work["additional_work_description"]);
 
     jsonResponse([
         "success" => true,
@@ -77,7 +113,6 @@ if ($method === "GET") {
         "items" => $items
     ]);
 }
-
 
 $data = readJsonInput();
 $workId = requirePositiveInt($data["work_id"] ?? null, "Hiányzó munkafolyamat azonosító");
@@ -92,6 +127,11 @@ if (!is_array($itemsInput) || count($itemsInput) === 0) {
 
 $sanitizedItems = [];
 $netTotal = 0;
+$serviceTotal = 0;
+$laborTotal = 0;
+$serviceDescriptions = [];
+$hasLaborItem = false;
+$hasFixedPriceServiceItem = false;
 
 foreach ($itemsInput as $item) {
     if (!is_array($item)) {
@@ -118,14 +158,57 @@ foreach ($itemsInput as $item) {
 
     $lineTotal = $quantity * $unitPrice;
     $isFixedPrice = !empty($item["is_fixed_price"]) ? 1 : 0;
+    $rawItemType = normalizeComparableHungarianText((string)($item["item_type"] ?? ""));
+    if ($rawItemType === "service") {
+        $itemType = "service";
+    } elseif ($rawItemType === "labor") {
+        $itemType = "labor";
+    } else {
+        $itemType = isLaborDescriptionLabel($description) ? "labor" : "service";
+    }
 
     $netTotal += $lineTotal;
+    $parsedServiceDescription = parseWorkDescriptionWithLaborMeta($description, 0, 0);
+    $cleanServiceDescription = trim((string)($parsedServiceDescription["description"] ?? ""));
+    $serviceItemContainsLabor = !empty($parsedServiceDescription["has_labor"]);
+
+    if ($itemType === "service") {
+        if ($serviceItemContainsLabor) {
+            $hasLaborItem = true;
+        }
+        $description = $cleanServiceDescription;
+    }
+
+    if ($itemType === "labor") {
+        $hasLaborItem = true;
+        $laborTotal += $lineTotal;
+        $isFixedPrice = 0;
+        $description = "Munkadíj";
+    } else {
+        if ($cleanServiceDescription === "" && $serviceItemContainsLabor) {
+            $hasLaborItem = true;
+            $laborTotal += $lineTotal;
+            $isFixedPrice = 0;
+            $itemType = "labor";
+            $description = "Munkadíj";
+        }
+    }
+
+    if ($itemType === "service") {
+        $serviceTotal += $lineTotal;
+        $serviceDescriptions[] = $description;
+        if ($isFixedPrice === 1) {
+            $hasFixedPriceServiceItem = true;
+        }
+    }
+
     $sanitizedItems[] = [
         "description" => $description,
         "quantity" => $quantity,
         "unit_price" => $unitPrice,
         "line_total" => $lineTotal,
-        "is_fixed_price" => $isFixedPrice
+        "is_fixed_price" => $isFixedPrice,
+        "item_type" => $itemType
     ];
 }
 
@@ -136,25 +219,52 @@ if (!$sanitizedItems) {
     ], 400);
 }
 
-$descriptionParts = [];
-foreach ($sanitizedItems as $item) {
-    $descriptionParts[] = trim((string)$item["description"]);
+$serviceDescriptions = array_values(array_filter($serviceDescriptions, static function ($value) {
+    return trim((string)$value) !== "";
+}));
+if (!$serviceDescriptions) {
+    jsonResponse([
+        "success" => false,
+        "message" => "Legalább egy fő számlatétel kötelező"
+    ], 400);
 }
 
-$storedDescription = trim(implode("; ", array_filter($descriptionParts, static function ($value) {
-    return $value !== "";
-})));
-if (mb_strlen($storedDescription) > 255) {
-    $storedDescription = mb_substr($storedDescription, 0, 255);
+$uniqueServiceDescriptions = array_values(array_unique($serviceDescriptions));
+$mainDescription = trim(implode("; ", $uniqueServiceDescriptions));
+if ($mainDescription === "") {
+    $mainDescription = "Munkafolyamat";
 }
+
+$laborTotal = max(0, $laborTotal);
+$metaSuffix = $hasLaborItem ? " ||LABOR_META:" . $laborTotal : "";
+$maxDescriptionLength = 255 - mb_strlen($metaSuffix);
+if ($maxDescriptionLength < 1) {
+    $maxDescriptionLength = 1;
+}
+if (mb_strlen($mainDescription) > $maxDescriptionLength) {
+    $mainDescription = mb_substr($mainDescription, 0, $maxDescriptionLength);
+}
+
+$storedDescription = buildWorkDescriptionWithLaborMeta($mainDescription, $laborTotal, $hasLaborItem);
 
 $storedItems = [[
-    "description" => $storedDescription !== "" ? $storedDescription : "Munkafolyamat",
+    "description" => $mainDescription,
     "quantity" => 1,
-    "unit_price" => $netTotal,
-    "line_total" => $netTotal,
-    "is_fixed_price" => 0
+    "unit_price" => $serviceTotal,
+    "line_total" => $serviceTotal,
+    "is_fixed_price" => $hasFixedPriceServiceItem ? 1 : 0,
+    "item_type" => "service"
 ]];
+if ($hasLaborItem) {
+    $storedItems[] = [
+        "description" => "Munkadíj",
+        "quantity" => 1,
+        "unit_price" => $laborTotal,
+        "line_total" => $laborTotal,
+        "is_fixed_price" => 0,
+        "item_type" => "labor"
+    ];
+}
 
 try {
     $pdo->beginTransaction();
@@ -175,7 +285,6 @@ try {
         ], 404);
     }
 
-
     $updateWorkStatement = $pdo->prepare("
         UPDATE work_process
         SET
@@ -188,7 +297,7 @@ try {
     $updateWorkStatement->execute([
         $netTotal,
         $workId,
-        $storedDescription !== "" ? $storedDescription : null,
+        $storedDescription,
         $workId
     ]);
 

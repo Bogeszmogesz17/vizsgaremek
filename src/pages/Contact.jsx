@@ -27,17 +27,17 @@ export default function Contact() {
               href="tel:+36301234567"
               className="text-gray-300 hover:text-red-500 transition"
             >
-              +36 30 123 4567
+              +36 70 384 9828
             </a>
           </p>
 
           <p className="text-gray-400">
             E-mail:{" "}
             <a
-              href="mailto:peter.kovacs@autoszerviz.hu"
+              href="mailto:locse.david@gmail.com"
               className="text-gray-300 hover:text-red-500 transition"
             >
-              peter.kovacs@autoszerviz.hu
+              locse.david@gmail.com
             </a>
           </p>
         </div>

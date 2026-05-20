@@ -25,6 +25,7 @@ if (is_file($companyDataPath)) {
     }
 }
 
+
 $companyName = trim((string)($companyData["company_name"] ?? "Dupla Dugattyú Műhely"));
 $companyEmail = trim((string)($companyData["email"] ?? MAIL_USER));
 $companyPhone = trim((string)($companyData["phone"] ?? ""));
@@ -39,10 +40,8 @@ $statement = $pdo->prepare("
         wp.appointment_time,
         wp.work_price,
         0 AS material_price,
-        COALESCE(
-            NULLIF(TRIM(wp.additional_work_description), ''),
-            COALESCE(s.name, 'Munkafolyamat')
-        ) AS service_name,
+        wp.additional_work_description,
+        COALESCE(s.name, 'Munkafolyamat') AS default_service_name,
         u.name AS user_name,
         u.email AS user_email,
         u.phone_number,
@@ -68,6 +67,21 @@ if (!$invoice) {
         "message" => "A munkafolyamat nem található"
     ], 404);
 }
+
+$parsedDescription = parseWorkDescriptionWithLaborMeta(
+    (string)($invoice["additional_work_description"] ?? ""),
+    max(0, (int)($invoice["work_price"] ?? 0)),
+    0
+);
+$serviceName = trim((string)($parsedDescription["description"] ?? ""));
+if ($serviceName === "") {
+    $serviceName = trim((string)($invoice["default_service_name"] ?? "Munkafolyamat"));
+}
+if ($serviceName === "") {
+    $serviceName = "Munkafolyamat";
+}
+$invoice["service_name"] = $serviceName;
+unset($invoice["additional_work_description"], $invoice["default_service_name"]);
 
 if (empty($invoice["user_email"])) {
     jsonResponse([

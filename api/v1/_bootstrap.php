@@ -56,6 +56,116 @@ function requirePositiveInt($value, string $message): int
     return $intValue;
 }
 
+function normalizeComparableHungarianText(string $value): string
+{
+    $normalized = mb_strtolower(trim($value), "UTF-8");
+    $normalized = str_replace(
+        ["á", "é", "í", "ó", "ö", "ő", "ú", "ü", "ű"],
+        ["a", "e", "i", "o", "o", "o", "u", "u", "u"],
+        $normalized
+    );
+    return preg_replace("/\s+/u", " ", $normalized) ?? $normalized;
+}
+
+function isLaborDescriptionLabel(string $value): bool
+{
+    $normalized = normalizeComparableHungarianText($value);
+    if (in_array($normalized, ["munkadij", "munkadij (labor)", "labor"], true)) {
+        return true;
+    }
+
+    if (preg_match("/^munkad(i)?j(\s*\(labor\))?$/u", $normalized) === 1) {
+        return true;
+    }
+
+    if (preg_match("/^munkad(i)?j$/u", $normalized) === 1) {
+        return true;
+    }
+
+    return false;
+}
+
+function parseWorkDescriptionWithLaborMeta(
+    string $rawDescription,
+    int $storedTotalPrice = 0,
+    int $serviceBasePrice = 0
+): array {
+    $description = trim($rawDescription);
+    $laborPrice = 0;
+    $hasLabor = false;
+
+    if ($description !== "" && preg_match("/\s*\|\|LABOR_META:(\d+)\s*$/u", $description, $matches) === 1) {
+        $hasLabor = true;
+        $laborPrice = max(0, (int)$matches[1]);
+        $description = trim((string)preg_replace("/\s*\|\|LABOR_META:\d+\s*$/u", "", $description));
+    }
+
+    if ($description !== "") {
+        $parts = array_values(array_filter(array_map("trim", explode(";", $description)), static function ($part) {
+            return $part !== "";
+        }));
+
+        if ($parts) {
+            $filteredParts = [];
+            foreach ($parts as $part) {
+                if (isLaborDescriptionLabel($part)) {
+                    $hasLabor = true;
+                    continue;
+                }
+                $filteredParts[] = $part;
+            }
+
+            if ($filteredParts) {
+                $description = implode("; ", $filteredParts);
+            } elseif ($hasLabor) {
+                $description = "";
+            }
+        } elseif (isLaborDescriptionLabel($description)) {
+            $hasLabor = true;
+            $description = "";
+        }
+    }
+
+    if (
+        $description !== "" &&
+        preg_match("/^(.*?)[,;]\s*(munkad[íi]j(\s*\(labor\))?|labor)\s*$/iu", $description, $matches) === 1
+    ) {
+        $hasLabor = true;
+        $description = trim((string)($matches[1] ?? ""));
+    }
+
+    if ($hasLabor && $laborPrice <= 0) {
+        $safeServiceBasePrice = max(0, $serviceBasePrice);
+        $safeStoredTotalPrice = max(0, $storedTotalPrice);
+        if ($safeServiceBasePrice > 0 && $safeStoredTotalPrice > $safeServiceBasePrice) {
+            $laborPrice = $safeStoredTotalPrice - $safeServiceBasePrice;
+        }
+    }
+
+    return [
+        "description" => $description,
+        "labor_price" => $laborPrice,
+        "has_labor" => $hasLabor
+    ];
+}
+
+function buildWorkDescriptionWithLaborMeta(
+    string $description,
+    int $laborPrice = 0,
+    bool $hasLabor = false
+): string {
+    $safeDescription = trim($description);
+    if ($safeDescription === "") {
+        $safeDescription = "Munkafolyamat";
+    }
+
+    if (!$hasLabor) {
+        return $safeDescription;
+    }
+
+    return $safeDescription . " ||LABOR_META:" . max(0, $laborPrice);
+}
+
 function getPositiveIntQueryParam(string $name): ?int
 {
     if (!isset($_GET[$name]) || !is_numeric($_GET[$name])) {

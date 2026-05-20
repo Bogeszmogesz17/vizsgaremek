@@ -13,13 +13,11 @@ $sql = "
         wp.status,
         wp.work_price,
         0 AS material_price,
+        wp.additional_work_description,
         COALESCE(
-            NULLIF(TRIM(wp.additional_work_description), ''),
-            COALESCE(
-                s.name,
-                'Nincs rögzített szolgáltatás'
-            )
-        ) AS services,
+            s.name,
+            'Nincs rögzített szolgáltatás'
+        ) AS default_service_name,
         u.id AS user_id,
         u.name AS user_name,
         u.email AS user_email,
@@ -61,10 +59,29 @@ $sql .= "
 
 $statement = $pdo->prepare($sql);
 $statement->execute($params);
+$history = $statement->fetchAll(PDO::FETCH_ASSOC);
+foreach ($history as &$historyItem) {
+    $parsedDescription = parseWorkDescriptionWithLaborMeta(
+        (string)($historyItem["additional_work_description"] ?? ""),
+        max(0, (int)($historyItem["work_price"] ?? 0)),
+        0
+    );
+    $services = trim((string)($parsedDescription["description"] ?? ""));
+    if ($services === "") {
+        $services = trim((string)($historyItem["default_service_name"] ?? ""));
+    }
+    if ($services === "") {
+        $services = "Nincs rögzített szolgáltatás";
+    }
+
+    $historyItem["services"] = $services;
+    unset($historyItem["additional_work_description"], $historyItem["default_service_name"]);
+}
+unset($historyItem);
 
 jsonResponse([
     "success" => true,
-    "history" => $statement->fetchAll(PDO::FETCH_ASSOC),
+    "history" => $history,
     "filters" => [
         "customer" => $customerQuery
     ]

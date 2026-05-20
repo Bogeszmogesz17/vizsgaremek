@@ -40,6 +40,27 @@ const normalizeText = (value = "") =>
 const isLaborInvoiceItem = (item = {}) =>
   normalizeText(item.item_type) === "labor" ||
   normalizeText(item.description) === normalizeText(LABOR_ITEM_DESCRIPTION);
+const isLaborOnlyLabel = (value = "") => {
+  const normalized = normalizeText(value);
+  return (
+    normalized === "labor" ||
+    normalized === "munkadij" ||
+    normalized === "munkadij (labor)"
+  );
+};
+const sanitizeWorkNoteDescription = (value = "") => {
+  const rawDescription = String(value || "").trim();
+  if (!rawDescription) return "";
+
+  const withoutMeta = rawDescription
+    .replace(/\s*\|\|LABOR_META:\d+\s*$/iu, "")
+    .trim();
+  if (!withoutMeta || isLaborOnlyLabel(withoutMeta)) return "";
+
+  return withoutMeta
+    .replace(/(?:[,;]\s*)?(munkad[íi]j(\s*\(labor\))?|labor)\s*$/iu, "")
+    .trim();
+};
 
 const clampPositiveInt = (value, fallback = 0) => {
   const parsed = Number.parseInt(value, 10);
@@ -90,6 +111,7 @@ const toApiInvoiceItems = (items = []) =>
         unit_price: unitPrice,
         line_total: quantity * unitPrice,
         is_fixed_price: item.is_fixed_price ? 1 : 0,
+        item_type: isLaborInvoiceItem(item) ? "labor" : "service",
       };
     })
     .filter(Boolean);
@@ -97,10 +119,19 @@ const toApiInvoiceItems = (items = []) =>
 const buildInvoicePreviewHtml = ({ company, booking, items, canSendEmail }) => {
   const invoiceNumber = buildInvoiceNumber(booking.id);
   const issueDate = new Date().toLocaleDateString("hu-HU");
-  const serviceName = booking.service || booking.description || booking.service_name || "Munkafolyamat";
   const customerAddress = formatAddress(booking.user_address || "");
   const companyAddress = formatAddress(company.address || "");
   const invoiceItems = toApiInvoiceItems(items);
+  const serviceDescriptions = invoiceItems
+    .filter((item) => item.item_type !== "labor")
+    .map((item) => sanitizeWorkNoteDescription(item.description))
+    .filter(Boolean);
+  const serviceName =
+    serviceDescriptions.join("; ") ||
+    sanitizeWorkNoteDescription(
+      booking.service || booking.description || booking.service_name || ""
+    ) ||
+    "Munkafolyamat";
   const netTotalPrice = invoiceItems.reduce(
     (sum, item) => sum + (Number(item.line_total) || 0),
     0
@@ -488,6 +519,7 @@ export default function AdminDashboard() {
   const [invoiceTargetWork, setInvoiceTargetWork] = useState(null);
   const [invoiceItems, setInvoiceItems] = useState([]);
   const [savedInvoiceId, setSavedInvoiceId] = useState(null);
+  const [hasLaborBeenAdded, setHasLaborBeenAdded] = useState(false);
   const removeDiacritics = (value = "") =>
     value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   const isInspectionBooking = (serviceName = "") =>
@@ -506,7 +538,8 @@ export default function AdminDashboard() {
   const canAddLaborInvoiceItem =
     !isFixedPriceBooking &&
     Boolean(mainInvoiceItem) &&
-    !laborInvoiceItem;
+    !laborInvoiceItem &&
+    !hasLaborBeenAdded;
   const normalizedBookingSearch = bookingSearchTerm.trim().toLowerCase();
   const filteredBookings = bookings.filter((b) => {
     if (!normalizedBookingSearch) return true;
@@ -644,6 +677,7 @@ export default function AdminDashboard() {
     setInvoiceTargetWork(null);
     setInvoiceItems([]);
     setSavedInvoiceId(null);
+    setHasLaborBeenAdded(false);
   };
 
   const openInvoiceEditor = async (work) => {
@@ -677,6 +711,10 @@ export default function AdminDashboard() {
       });
       setSavedInvoiceId(data.invoice?.id || null);
       const loadedItems = (data.items || []).map((item) => toLocalInvoiceItem(item));
+      const hasLoadedLaborItem = loadedItems.some((item) => item.item_type === "labor");
+      const hasExistingLabor =
+        hasLoadedLaborItem || clampPositiveInt(loadedWork.labor_price, 0) > 0;
+      setHasLaborBeenAdded(hasExistingLabor);
       setInvoiceItems(
         (() => {
           const serviceName =
@@ -756,6 +794,7 @@ export default function AdminDashboard() {
           is_fixed_price: 0,
         }),
       ]);
+      setHasLaborBeenAdded(false);
     } finally {
       setInvoiceLoading(false);
     }
@@ -802,29 +841,28 @@ export default function AdminDashboard() {
     );
   };
 
-  const removeInvoiceItem = (rowId) => {
-    setInvoiceItems((prev) => prev.filter((item) => item.row_id !== rowId));
-  };
 
   const addLaborInvoiceItem = () => {
-    if (!mainInvoiceItem || isFixedPriceBooking) {
+    if (!mainInvoiceItem || isFixedPriceBooking || hasLaborBeenAdded) {
       return;
     }
-    setInvoiceItems((prev) => [
-      ...prev.filter((item) => item.item_type !== "labor"),
-      ...(prev.some((item) => item.item_type === "labor")
-        ? prev.filter((item) => item.item_type === "labor")
-        : [
-            {
-              row_id: createLocalInvoiceItemId(),
-              description: LABOR_ITEM_DESCRIPTION,
-              quantity: 1,
-              unit_price: 0,
-              is_fixed_price: false,
-              item_type: "labor",
-            },
-          ]),
-    ]);
+    setInvoiceItems((prev) => {
+      if (prev.some((item) => item.item_type === "labor")) {
+        return prev;
+      }
+      return [
+        ...prev,
+        {
+          row_id: createLocalInvoiceItemId(),
+          description: LABOR_ITEM_DESCRIPTION,
+          quantity: 1,
+          unit_price: 0,
+          is_fixed_price: false,
+          item_type: "labor",
+        },
+      ];
+    });
+    setHasLaborBeenAdded(true);
   };
 
   const openInvoicePreviewWindow = () => {
@@ -1443,7 +1481,9 @@ export default function AdminDashboard() {
                     <a href={`tel:${w.phone_number}`} className="text-blue-400 hover:underline text-sm inline-block">
                       {w.phone_number}
                     </a>
-                    <p className="text-sm break-words">{w.description}</p>
+                    <p className="text-sm break-words">
+                      {sanitizeWorkNoteDescription(w.description) || "-"}
+                    </p>
                     <p className="text-sm text-yellow-400">Folyamatban</p>
                     <div className="flex flex-wrap gap-2 pt-2">
                       <button
@@ -1500,7 +1540,9 @@ export default function AdminDashboard() {
                           </a>
                         </td>
 
-                        <td className="p-2 break-words max-w-xs">{w.description}</td>
+                        <td className="p-2 break-words max-w-xs">
+                          {sanitizeWorkNoteDescription(w.description) || "-"}
+                        </td>
 
                         <td className="p-2 text-yellow-400">
                           Folyamatban
@@ -1626,16 +1668,7 @@ export default function AdminDashboard() {
 
                   {laborInvoiceItem && (
                     <div className="border border-gray-700 rounded p-3 sm:p-4 space-y-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="text-sm font-semibold text-gray-300">Munkadíj</p>
-                        <button
-                          type="button"
-                          onClick={() => removeInvoiceItem(laborInvoiceItem.row_id)}
-                          className="text-xs bg-red-700 hover:bg-red-800 px-2 py-1 rounded"
-                        >
-                          Törlés
-                        </button>
-                      </div>
+                      <p className="text-sm font-semibold text-gray-300">Munkadíj</p>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
                         <input
                           type="text"
