@@ -7,7 +7,7 @@ require_once "db.php";
 $data = json_decode(file_get_contents("php://input"), true);
 
 if (
-    empty($data["email"]) ||   // frontend miatt marad "email"
+    empty($data["email"]) ||   
     empty($data["password"])
 ) {
     echo json_encode([
@@ -17,7 +17,7 @@ if (
     exit;
 }
 
-$userEmail = trim($data["email"]); // frontend mező = username
+$userEmail = trim($data["email"]); 
 $password = $data["password"];
 
 if($userEmail == "dupldugattyu.info@gmail.com") {
